@@ -1,0 +1,235 @@
+@import "tailwindcss";
+
+:root {
+  --gw-blue: #0057c8;
+  --gw-blue-deep: #003f91;
+  --gw-blue-soft: #e8f1fc;
+  --ink: #111827;
+  --muted: #5b6b7c;
+  --line: #d7e2f0;
+  --surface: #eef4fb;
+  --surface-elevated: #ffffff;
+  --success: #0057c8;
+  --warning: #b45309;
+  --danger: #dc2626;
+  --background: var(--surface);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-gw-blue: var(--gw-blue);
+  --color-gw-blue-deep: var(--gw-blue-deep);
+  --color-gw-blue-soft: var(--gw-blue-soft);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --font-sans: var(--font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-sans), "Open Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  letter-spacing: -0.011em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.site-shell,
+.content-shell {
+  width: min(1280px, calc(100% - 1.5rem));
+  margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .site-shell,
+  .content-shell {
+    width: min(1280px, calc(100% - 2rem));
+  }
+}
+
+@media (min-width: 1024px) {
+  .content-shell {
+    width: min(1320px, calc(100% - 2.5rem));
+  }
+}
+
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.7rem 1.15rem;
+  font-weight: 600;
+  font-size: 0.925rem;
+  border: 1px solid transparent;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.btn-primary {
+  background: var(--gw-blue);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--gw-blue-deep);
+}
+
+.btn-secondary {
+  background: white;
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.btn-secondary:hover {
+  background: var(--gw-blue-soft);
+}
+
+.btn-on-blue {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: white;
+}
+
+.btn-on-blue:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-green {
+  background: var(--gw-blue);
+  color: white;
+}
+
+.btn-green:hover {
+  background: var(--gw-blue-deep);
+}
+
+.panel {
+  background: var(--surface-elevated);
+  border: 1px solid var(--line);
+  border-radius: 0.875rem;
+  box-shadow: 0 1px 2px rgba(0, 63, 145, 0.04);
+}
+
+.hero-band {
+  background: linear-gradient(135deg, var(--gw-blue) 0%, var(--gw-blue-deep) 100%);
+  color: white;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.input,
+.select {
+  min-height: 2.75rem;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: 2px solid rgba(0, 87, 200, 0.2);
+  border-color: var(--gw-blue);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+table.data th,
+table.data td {
+  text-align: left;
+  padding: 0.95rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+table.data th {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  background: #fafbfc;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-requested {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.status-scheduled {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+.status-trailer_on_site {
+  background: #fef3c7;
+  color: #92400e;
+}
+.status-ready_for_pickup {
+  background: #ffedd5;
+  color: #c2410c;
+}
+.status-completed {
+  background: #059669;
+  color: #ffffff;
+}
+.status-cancelled {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.text-success {
+  color: var(--gw-blue-deep);
+}
