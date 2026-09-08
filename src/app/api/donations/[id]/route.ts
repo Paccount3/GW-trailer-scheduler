@@ -22,3 +22,21 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest, { params }: Params) {
+  if (!requireStaffFromRequest(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    await data.deleteDonation(id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Delete failed" },
+      { status: 400 },
+    );
+  }
+}

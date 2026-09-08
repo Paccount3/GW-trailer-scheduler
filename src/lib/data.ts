@@ -173,6 +173,28 @@ export const data = {
     return row as DonationRequest;
   },
 
+  async deleteDonation(id: string) {
+    if (!isSupabaseConfigured()) return demoDb.deleteDonation(id);
+
+    const supabase = getServiceSupabase();
+    const current = await this.getDonation(id);
+    if (!current) throw new Error("Donation request not found");
+
+    const { error } = await supabase
+      .from("donation_requests")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+
+    const documentPaths = [
+      current.parking_photo_path,
+      current.license_photo_path,
+    ].filter((path): path is string => Boolean(path));
+    if (documentPaths.length) {
+      await supabase.storage.from("request-documents").remove(documentPaths);
+    }
+  },
+
   async listReports(): Promise<TrailerReport[]> {
     if (!isSupabaseConfigured()) return demoDb.listReports();
     const { data: rows, error } = await getServiceSupabase()

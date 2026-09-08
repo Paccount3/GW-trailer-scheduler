@@ -50,6 +50,8 @@ export function ManageDonationsClient({
     initialDonations[0]?.id ?? null,
   );
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -191,6 +193,33 @@ export function ManageDonationsClient({
       prev.map((d) => (d.id === body.id ? (body as DonationRequest) : d)),
     );
     setMessage("Saved");
+  }
+
+  async function deleteSelected() {
+    if (!selected) return;
+    setDeleting(true);
+    setError("");
+
+    const res = await fetch(`/api/donations/${selected.id}`, {
+      method: "DELETE",
+    });
+    const body = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      setDeleting(false);
+      setConfirmDelete(false);
+      setError(body.error || "Failed to delete request");
+      return;
+    }
+
+    const remaining = donations.filter(
+      (donation) => donation.id !== selected.id,
+    );
+    setDonations(remaining);
+    setSelectedId(remaining[0]?.id ?? null);
+    setDeleting(false);
+    setConfirmDelete(false);
+    setMessage("");
   }
 
   return (
@@ -596,6 +625,20 @@ export function ManageDonationsClient({
                 </Link>
               )}
 
+              <div className="border-t border-line pt-4">
+                <button
+                  type="button"
+                  className="btn w-full border border-red-300 bg-white text-red-700 hover:bg-red-50"
+                  disabled={saving || deleting}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Delete this request
+                </button>
+                <p className="mt-2 text-center text-xs text-muted">
+                  Permanently removes the request and its trailer reports.
+                </p>
+              </div>
+
               {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
               {message && !error && (
                 <p className="text-sm text-success">{message}</p>
@@ -606,6 +649,55 @@ export function ManageDonationsClient({
           )}
         </aside>
       </div>
+
+      {confirmDelete && selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-request-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !deleting) {
+              setConfirmDelete(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <p className="text-sm font-bold uppercase tracking-wide text-red-700">
+              Permanent action
+            </p>
+            <h2
+              id="delete-request-title"
+              className="mt-2 text-2xl font-bold text-ink"
+            >
+              Delete request #{selected.reference_code}?
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
+              The request for {fullName(selected)}, its signed submission,
+              uploaded documents, and linked trailer reports will be
+              permanently removed. This cannot be undone.
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={deleting}
+                onClick={() => setConfirmDelete(false)}
+              >
+                Keep request
+              </button>
+              <button
+                type="button"
+                className="btn bg-red-600 text-white hover:bg-red-700"
+                disabled={deleting}
+                onClick={deleteSelected}
+              >
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

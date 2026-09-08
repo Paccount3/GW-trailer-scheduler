@@ -503,6 +503,16 @@ export const demoDb = {
     return withTrailer(donation);
   },
 
+  deleteDonation(id: string) {
+    const store = getStore();
+    const donation = store.donations.find((item) => item.id === id);
+    if (!donation) throw new Error("Donation request not found");
+    store.donations = store.donations.filter((item) => item.id !== id);
+    store.reports = store.reports.filter(
+      (report) => report.donation_request_id !== id,
+    );
+  },
+
   listReports() {
     return getStore()
       .reports.map(withDonation)
