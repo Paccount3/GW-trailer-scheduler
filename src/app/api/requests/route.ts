@@ -10,7 +10,6 @@ import {
 import {
   getServiceSupabase,
   isSupabaseConfigured,
-  requireSupabaseInProduction,
 } from "@/lib/supabase/server";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -68,7 +67,6 @@ async function uploadPrivateImage(file: File, folder: string) {
   const bytes = await file.arrayBuffer();
 
   if (!isSupabaseConfigured()) {
-    requireSupabaseInProduction();
     return saveDemoUpload(path, bytes, file.type);
   }
 

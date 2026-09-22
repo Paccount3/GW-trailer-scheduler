@@ -1,26 +1,28 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import path from "path";
-import { isServerlessHost } from "@/lib/supabase/server";
 
-const ROOT = path.join(process.cwd(), ".data");
-const UPLOADS = path.join(ROOT, "uploads");
+function isServerlessHost() {
+  return Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+}
 
-function assertLocalDemoFilesystem() {
-  if (isServerlessHost()) {
-    throw new Error(
-      "Local demo file storage is not available on Vercel. Configure Supabase environment variables for uploads.",
-    );
-  }
+/** Writable demo root: project `.data` locally, `/tmp` on Vercel. */
+function resolveDemoRoot() {
+  return isServerlessHost()
+    ? path.join("/tmp", "gtg-demo")
+    : path.join(process.cwd(), ".data");
+}
+
+function uploadsDir() {
+  return path.join(resolveDemoRoot(), "uploads");
 }
 
 function ensureUploadsDir() {
-  assertLocalDemoFilesystem();
-  mkdirSync(UPLOADS, { recursive: true });
+  mkdirSync(uploadsDir(), { recursive: true });
 }
 
 export function demoUploadsRoot() {
   ensureUploadsDir();
-  return UPLOADS;
+  return uploadsDir();
 }
 
 export function resolveDemoUploadPath(relativePath: string) {
@@ -28,7 +30,7 @@ export function resolveDemoUploadPath(relativePath: string) {
   if (!normalized || normalized.includes("..")) {
     throw new Error("Invalid document path");
   }
-  return path.join(UPLOADS, ...normalized.split("/"));
+  return path.join(uploadsDir(), ...normalized.split("/"));
 }
 
 export async function saveDemoUpload(
@@ -78,7 +80,7 @@ export function deleteDemoUploads(relativePaths: string[]) {
 }
 
 export function demoDataDir() {
-  assertLocalDemoFilesystem();
-  mkdirSync(ROOT, { recursive: true });
-  return ROOT;
+  const root = resolveDemoRoot();
+  mkdirSync(root, { recursive: true });
+  return root;
 }

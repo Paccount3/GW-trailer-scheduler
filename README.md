@@ -26,10 +26,13 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Staff password defaults to `goodwill` (override with `STAFF_PASSWORD`).
 
-Without Supabase env vars, the app uses a **file-backed local store** in `.data/`
-so public requests, uploaded photos, staff edits, and trailer reports survive
-server restarts. When Supabase credentials are added later, the same app uses
-your hosted database and storage instead.
+Without Supabase env vars, the app uses a **file-backed local store**:
+- Locally: `.data/`
+- On Vercel demo deploys: `/tmp/gtg-demo/` (writable; enough for a team
+  prototype, but data can reset when serverless instances recycle)
+
+When Supabase credentials are added later, the same app uses your hosted
+database and storage instead.
 
 ## Supabase
 
@@ -83,18 +86,19 @@ Manage Donations applies those variables when a load size is selected.
 
 ## Deploy (Vercel)
 
+Without Supabase, the app runs in **demo mode** on Vercel using writable
+`/tmp` storage for requests, photos, and staff edits. That is enough for a
+team prototype, but data can reset when serverless instances recycle.
+
 1. Push the repo and import it into Vercel.
-2. In **Project Settings → Environment Variables**, add at least:
+2. Set at least:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
 STAFF_PASSWORD=...
 STAFF_SESSION_SECRET=...
 ```
 
-3. In Supabase, run `supabase/schema.sql` (or the migrations) and confirm the
-   private `request-documents` storage bucket exists.
-4. Redeploy. The live site cannot use the local `.data` demo store — uploads and
-   form submissions require Supabase.
+3. Deploy and demo the full request → manage → report flow.
+
+When you are ready for real hosted data, add Supabase env vars and run the
+SQL schema/migrations (including the `request-documents` storage bucket).
