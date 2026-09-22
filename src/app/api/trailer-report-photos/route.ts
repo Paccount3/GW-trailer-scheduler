@@ -4,6 +4,7 @@ import { saveDemoUpload } from "@/lib/demo-files";
 import {
   getServiceSupabase,
   isSupabaseConfigured,
+  requireSupabaseInProduction,
 } from "@/lib/supabase/server";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
     const bytes = await photo.arrayBuffer();
 
     if (!isSupabaseConfigured()) {
+      requireSupabaseInProduction();
       await saveDemoUpload(path, bytes, photo.type);
       return NextResponse.json({ path }, { status: 201 });
     }

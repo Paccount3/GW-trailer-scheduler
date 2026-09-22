@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { deleteDemoUploads, demoDataDir } from "@/lib/demo-files";
+import { isServerlessHost } from "@/lib/supabase/server";
 import {
   ACTIVE_TRAILER_STATUSES,
   DEFAULT_LOAD_VALUE_SETTINGS,
@@ -19,6 +20,14 @@ const STORE_FILE = () => path.join(demoDataDir(), "demo-store.json");
 
 function uid() {
   return crypto.randomUUID();
+}
+
+function assertDemoAllowed() {
+  if (isServerlessHost()) {
+    throw new Error(
+      "Supabase is not configured on this deployment. In Vercel → Project Settings → Environment Variables, add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, then redeploy.",
+    );
+  }
 }
 
 const defaultLoadSettings: LoadValueSetting[] = DEFAULT_LOAD_VALUE_SETTINGS.map(
@@ -362,6 +371,7 @@ function loadPersistedStore(): Store | null {
 }
 
 function getStore(): Store {
+  assertDemoAllowed();
   if (!globalThis.__gtgDemoStore) {
     const existing = loadPersistedStore();
     globalThis.__gtgDemoStore = existing ?? seedStore();

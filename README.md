@@ -83,6 +83,18 @@ Manage Donations applies those variables when a load size is selected.
 
 ## Deploy (Vercel)
 
-1. Push repo and import into Vercel.
-2. Add the Supabase env vars.
-3. Deploy.
+1. Push the repo and import it into Vercel.
+2. In **Project Settings → Environment Variables**, add at least:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+STAFF_PASSWORD=...
+STAFF_SESSION_SECRET=...
+```
+
+3. In Supabase, run `supabase/schema.sql` (or the migrations) and confirm the
+   private `request-documents` storage bucket exists.
+4. Redeploy. The live site cannot use the local `.data` demo store — uploads and
+   form submissions require Supabase.

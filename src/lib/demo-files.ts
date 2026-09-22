@@ -1,10 +1,20 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import path from "path";
+import { isServerlessHost } from "@/lib/supabase/server";
 
 const ROOT = path.join(process.cwd(), ".data");
 const UPLOADS = path.join(ROOT, "uploads");
 
+function assertLocalDemoFilesystem() {
+  if (isServerlessHost()) {
+    throw new Error(
+      "Local demo file storage is not available on Vercel. Configure Supabase environment variables for uploads.",
+    );
+  }
+}
+
 function ensureUploadsDir() {
+  assertLocalDemoFilesystem();
   mkdirSync(UPLOADS, { recursive: true });
 }
 
@@ -68,6 +78,7 @@ export function deleteDemoUploads(relativePaths: string[]) {
 }
 
 export function demoDataDir() {
+  assertLocalDemoFilesystem();
   mkdirSync(ROOT, { recursive: true });
   return ROOT;
 }
