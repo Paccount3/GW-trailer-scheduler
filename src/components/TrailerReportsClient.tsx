@@ -3,19 +3,27 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
+import { ReportPhotoField } from "@/components/ReportPhotoField";
 import {
   DonationRequest,
   InspectionItemResult,
   InspectionResult,
+  LOAD_SIZE_LABELS,
+  LOAD_SIZES,
+  LoadSize,
+  LoadValueSetting,
   PickupInspectionData,
   TowReadiness,
   TrailerReport,
+  calcLoadEstimate,
   fullName,
 } from "@/lib/types";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 
 type Props = {
   initialReports: TrailerReport[];
   donations: DonationRequest[];
+  loadSettings: LoadValueSetting[];
   initialDonationId?: string;
 };
 
@@ -253,6 +261,7 @@ function ChoiceGroup<T extends string>({
 
 function OptionalDetails({
   id,
+  donationId,
   notes,
   photoReference,
   expanded,
@@ -261,6 +270,7 @@ function OptionalDetails({
   onPhotoChange,
 }: {
   id: string;
+  donationId: string;
   notes: string;
   photoReference: string;
   expanded: Record<string, boolean>;
@@ -303,7 +313,7 @@ function OptionalDetails({
         </label>
       </div>
       {(showNote || showPhoto) && (
-        <div className="grid sm:grid-cols-2 gap-3 pt-1">
+        <div className="grid gap-3 pt-1 sm:grid-cols-2">
           {showNote && (
             <input
               className="input"
@@ -313,12 +323,14 @@ function OptionalDetails({
             />
           )}
           {showPhoto && (
-            <input
-              className="input"
-              value={photoReference}
-              onChange={(event) => onPhotoChange(event.target.value)}
-              placeholder="Photo number or reference"
-            />
+            <div className={showNote ? "" : "sm:col-span-2"}>
+              <ReportPhotoField
+                donationId={donationId}
+                fieldKey={id}
+                value={photoReference}
+                onChange={onPhotoChange}
+              />
+            </div>
           )}
         </div>
       )}
@@ -329,6 +341,7 @@ function OptionalDetails({
 export function TrailerReportsClient({
   initialReports,
   donations,
+  loadSettings,
   initialDonationId,
 }: Props) {
   const initialEligibleDonation =
@@ -677,6 +690,85 @@ export function TrailerReportsClient({
             </div>
           )}
 
+          <div
+            id="field-estimated_load"
+            className={`rounded-xl border p-4 sm:p-5 ${
+              validationErrors.has("estimated_load")
+                ? "border-red-500 bg-red-50"
+                : "border-gw-blue/30 bg-gw-blue-soft/60"
+            }`}
+          >
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_auto]">
+              <label className="block text-sm font-semibold">
+                Estimated trailer fullness
+                <select
+                  className="select mt-1.5"
+                  value={
+                    LOAD_SIZES.includes(
+                      form.estimated_load as LoadSize,
+                    )
+                      ? form.estimated_load
+                      : "quarter"
+                  }
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      estimated_load: event.target.value as LoadSize,
+                      estimated_load_other: "",
+                    })
+                  }
+                >
+                  {loadSettings
+                    .filter((setting) =>
+                      LOAD_SIZES.includes(setting.load_size),
+                    )
+                    .sort(
+                      (a, b) =>
+                        Number(a.estimated_pounds) - Number(b.estimated_pounds),
+                    )
+                    .map((setting) => {
+                      const estimate = calcLoadEstimate(
+                        Number(setting.estimated_pounds),
+                        Number(setting.value_per_pound),
+                      );
+                      return (
+                        <option key={setting.load_size} value={setting.load_size}>
+                          {setting.label || LOAD_SIZE_LABELS[setting.load_size]}{" "}
+                          — {formatNumber(setting.estimated_pounds)} lbs ·{" "}
+                          {formatCurrency(estimate.estimated_value)}
+                        </option>
+                      );
+                    })}
+                </select>
+              </label>
+              {(() => {
+                const setting = loadSettings.find(
+                  (item) => item.load_size === form.estimated_load,
+                );
+                if (!setting) return null;
+                const estimate = calcLoadEstimate(
+                  Number(setting.estimated_pounds),
+                  Number(setting.value_per_pound),
+                );
+                return (
+                  <div className="rounded-lg bg-white px-4 py-3 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                      Estimated value
+                    </p>
+                    <p className="mt-1 text-2xl font-bold text-gw-blue-deep">
+                      {formatCurrency(estimate.estimated_value)}
+                    </p>
+                    <p className="mt-1 text-muted">
+                      {formatNumber(setting.estimated_pounds)} lbs × $
+                      {Number(setting.value_per_pound).toFixed(2)}
+                      /lb
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <label
               id="field-pickup_date"
@@ -943,6 +1035,7 @@ export function TrailerReportsClient({
                     />
                     <OptionalDetails
                       id={`tow:${key}`}
+                      donationId={donationId}
                       notes={item?.notes || ""}
                       photoReference={item?.photo_reference || ""}
                       expanded={expandedFields}
@@ -1063,6 +1156,7 @@ export function TrailerReportsClient({
                   />
                   <OptionalDetails
                     id={`exterior:${key}`}
+                    donationId={donationId}
                     notes={component.notes}
                     photoReference={component.photo_reference}
                     expanded={expandedFields}
@@ -1155,6 +1249,7 @@ export function TrailerReportsClient({
                   />
                   <OptionalDetails
                     id={`interior:${key}`}
+                    donationId={donationId}
                     notes={item.notes}
                     photoReference={item.photo_reference}
                     expanded={expandedFields}
@@ -1184,41 +1279,6 @@ export function TrailerReportsClient({
           })}
 
           <div className="grid md:grid-cols-2 gap-4 rounded-lg bg-surface p-4">
-            <label className="block text-sm font-semibold">
-              Estimated load
-              <select
-                className="select mt-1.5"
-                value={form.estimated_load}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    estimated_load: event.target
-                      .value as PickupInspectionData["estimated_load"],
-                  })
-                }
-              >
-                <option value="quarter">¼ Full (~1,000 lbs)</option>
-                <option value="half">½ Full (~2,000 lbs)</option>
-                <option value="three_quarter">¾ Full (~3,000 lbs)</option>
-                <option value="full">Full (~4,000 lbs)</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            {form.estimated_load === "other" && (
-              <label className="block text-sm font-semibold">
-                Other load estimate
-                <input
-                  className="input mt-1.5"
-                  value={form.estimated_load_other}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      estimated_load_other: event.target.value,
-                    })
-                  }
-                />
-              </label>
-            )}
             <div>
               <p className="text-sm font-semibold">
                 Accepted-item exception or unsafe material found?
@@ -1343,6 +1403,7 @@ export function TrailerReportsClient({
                 </label>
                 <OptionalDetails
                   id={`equipment:${key}`}
+                  donationId={donationId}
                   notes={item.notes}
                   photoReference={item.photo_reference}
                   expanded={expandedFields}
@@ -1441,21 +1502,24 @@ export function TrailerReportsClient({
                   }}
                 />
               </label>
-              <label className="text-xs font-semibold text-muted">
-                Photo #
-                <input
-                  className="input mt-1"
-                  value={entry.photo_reference}
-                  onChange={(event) => {
-                    const damageLog = [...form.damage_log];
-                    damageLog[index] = {
-                      ...entry,
-                      photo_reference: event.target.value,
-                    };
-                    setForm({ ...form, damage_log: damageLog });
-                  }}
-                />
-              </label>
+              <div className="text-xs font-semibold text-muted sm:col-span-2 xl:col-span-1">
+                Photo
+                <div className="mt-1">
+                  <ReportPhotoField
+                    donationId={donationId}
+                    fieldKey={`damage:${index}`}
+                    value={entry.photo_reference}
+                    onChange={(value) => {
+                      const damageLog = [...form.damage_log];
+                      damageLog[index] = {
+                        ...entry,
+                        photo_reference: value,
+                      };
+                      setForm({ ...form, damage_log: damageLog });
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>

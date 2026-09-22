@@ -19,7 +19,6 @@ create type public.report_type as enum ('dropoff', 'pickup');
 
 create type public.load_size as enum (
   'quarter',
-  'third',
   'half',
   'three_quarter',
   'full'
@@ -63,12 +62,16 @@ create table public.donation_requests (
   signature text,
   signed_at timestamptz,
   agreement_version text,
+  staff_signer_name text,
+  staff_signature text,
+  staff_signed_at timestamptz,
   hold_harmless boolean default false,
   agreements jsonb default '{}'::jsonb,
   raw_wufoo_payload jsonb,
   status public.donation_status not null default 'requested',
   trailer_id uuid references public.trailers (id) on delete set null,
   scheduled_date date,
+  dropoff_store text,
   load_size public.load_size,
   estimated_pounds numeric(10, 2),
   estimated_value numeric(12, 2),
@@ -117,11 +120,10 @@ create table public.load_value_settings (
 );
 
 insert into public.load_value_settings (load_size, label, estimated_pounds, value_per_pound) values
-  ('quarter', '1/4 Trailer', 250, 1.50),
-  ('third', '1/3 Trailer', 350, 1.50),
-  ('half', '1/2 Trailer', 500, 1.50),
-  ('three_quarter', '3/4 Trailer', 750, 1.50),
-  ('full', 'Full Trailer', 1000, 1.50);
+  ('quarter', '25% Full', 1000, 0.26),
+  ('half', '50% Full', 2000, 0.26),
+  ('three_quarter', '75% Full', 3000, 0.26),
+  ('full', '100% Full', 4000, 0.26);
 
 -- updated_at helper
 create or replace function public.set_updated_at()

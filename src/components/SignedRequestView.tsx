@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
-import { DonationRequest, fullName } from "@/lib/types";
+import { useState } from "react";
+import { downloadSignedAgreementPdf } from "@/lib/agreement-pdf";
 import { HOLD_HARMLESS_TEXT } from "@/lib/hold-harmless";
+import { DonationRequest, fullName } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 function DocumentLink({
@@ -24,10 +28,22 @@ function DocumentLink({
 }
 
 export function SignedRequestView({
-  donation,
+  donation: initialDonation,
 }: {
   donation: DonationRequest;
 }) {
+  const [donation, setDonation] = useState(initialDonation);
+  const [staffName, setStaffName] = useState(donation.staff_signer_name || "");
+  const [staffSignature, setStaffSignature] = useState(
+    donation.staff_signature || "",
+  );
+  const [editingSignature, setEditingSignature] = useState(
+    !donation.staff_signature,
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
   const agreements = donation.agreements || {};
   const agreementText =
     typeof agreements.agreement_snapshot === "string"
@@ -42,6 +58,33 @@ export function SignedRequestView({
     ["Goodwill donations only", agreements.goodwill_only_agreed],
     ["Display Goodwill lawn sign", agreements.lawn_sign_agreed],
   ];
+  const countersigned = Boolean(donation.staff_signature && donation.staff_signed_at);
+
+  async function saveCountersign() {
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    const res = await fetch(`/api/donations/${donation.id}/countersign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        staff_signer_name: staffName,
+        staff_signature: staffSignature,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setSaving(false);
+
+    if (!res.ok) {
+      setError(body.error || "Unable to save counter-signature");
+      return;
+    }
+
+    setDonation(body as DonationRequest);
+    setEditingSignature(false);
+    setMessage("Goodwill counter-signature saved.");
+  }
 
   return (
     <div className="space-y-5">
@@ -53,11 +96,21 @@ export function SignedRequestView({
           <h1 className="text-3xl font-bold">Signed Trailer Request</h1>
           <p className="mt-1 text-muted">
             Submitted {formatDate(donation.created_at)}
+            {countersigned ? " · Counter-signed by Goodwill" : " · Awaiting Goodwill signature"}
           </p>
         </div>
-        <Link href="/staff/manage" className="btn btn-secondary">
-          Back to Manage Donations
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => downloadSignedAgreementPdf(donation)}
+          >
+            Export agreement PDF
+          </button>
+          <Link href="/staff/manage" className="btn btn-secondary">
+            Back to Manage Donations
+          </Link>
+        </div>
       </div>
 
       <section className="panel overflow-hidden">
@@ -144,7 +197,7 @@ export function SignedRequestView({
       </section>
 
       <section className="panel p-4 sm:p-6">
-        <h2 className="text-xl font-bold">Electronic Signature</h2>
+        <h2 className="text-xl font-bold">Applicant Electronic Signature</h2>
         <p
           className="mt-5 border-b-2 border-ink pb-2 text-3xl italic"
           style={{ fontFamily: "cursive" }}
@@ -155,6 +208,108 @@ export function SignedRequestView({
           Signed {formatDate(donation.signed_at)} · Agreement version{" "}
           {donation.agreement_version || "not recorded"}
         </p>
+      </section>
+
+      <section className="panel p-4 sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold">Goodwill Counter-Signature</h2>
+            <p className="mt-1 text-sm text-muted">
+              A Goodwill team member can sign this agreement before exporting
+              the PDF.
+            </p>
+          </div>
+          <span
+            className={`status-pill ${
+              countersigned
+                ? "bg-emerald-600 text-white"
+                : "bg-amber-100 text-amber-900"
+            }`}
+          >
+            {countersigned ? "Counter-signed" : "Needs signature"}
+          </span>
+        </div>
+
+        {countersigned && !editingSignature ? (
+          <div className="mt-5">
+            <p
+              className="border-b-2 border-ink pb-2 text-3xl italic"
+              style={{ fontFamily: "cursive" }}
+            >
+              {donation.staff_signature}
+            </p>
+            <p className="mt-2 text-sm text-muted">
+              Signed by {donation.staff_signer_name} on{" "}
+              {formatDate(donation.staff_signed_at)}
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary mt-4"
+              onClick={() => {
+                setStaffName(donation.staff_signer_name || "");
+                setStaffSignature(donation.staff_signature || "");
+                setEditingSignature(true);
+                setMessage("");
+              }}
+            >
+              Replace counter-signature
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-semibold">
+              Printed name
+              <input
+                className="input mt-1.5"
+                value={staffName}
+                onChange={(event) => setStaffName(event.target.value)}
+                placeholder="Goodwill team member"
+                disabled={saving}
+              />
+            </label>
+            <label className="block text-sm font-semibold">
+              Signature (typed name)
+              <input
+                className="input mt-1.5"
+                value={staffSignature}
+                onChange={(event) => setStaffSignature(event.target.value)}
+                placeholder="Type full name to sign"
+                disabled={saving}
+                style={{ fontFamily: "cursive", fontSize: "1.15rem" }}
+              />
+            </label>
+            <div className="flex flex-wrap gap-3 sm:col-span-2">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={saving || !staffName.trim() || !staffSignature.trim()}
+                onClick={saveCountersign}
+              >
+                {saving ? "Saving…" : "Save Goodwill signature"}
+              </button>
+              {countersigned && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={saving}
+                  onClick={() => {
+                    setStaffName(donation.staff_signer_name || "");
+                    setStaffSignature(donation.staff_signature || "");
+                    setEditingSignature(false);
+                    setError("");
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {error && <p className="mt-3 text-sm text-[var(--danger)]">{error}</p>}
+        {message && !error && (
+          <p className="mt-3 text-sm text-emerald-700">{message}</p>
+        )}
       </section>
 
       <details className="panel overflow-hidden">

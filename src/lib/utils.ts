@@ -4,10 +4,22 @@ export function cn(...parts: Array<string | false | null | undefined>) {
 
 export function formatCurrency(value: number | null | undefined) {
   if (value == null || Number.isNaN(Number(value))) return "—";
+  const amount = Number(value);
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function formatCurrencyExact(value: number | null | undefined) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(Number(value));
 }
 

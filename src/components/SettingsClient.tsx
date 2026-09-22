@@ -240,8 +240,9 @@ export function SettingsClient({
           Load value estimates
         </h2>
         <p className="text-sm text-muted mt-1 mb-4">
-          Set estimated pounds and value per pound for each load size. Manage
-          Donations uses these to calculate totals.
+          Trailer fullness options used by Trailer Reports and Manage Donations.
+          Default program rate is $0.26 per pound (25% = $260, 50% = $520, 75% =
+          $780, 100% = $1,040).
         </p>
 
         <div className="table-wrap">
@@ -328,7 +329,7 @@ export function SettingsClient({
         </div>
 
         <p className="text-xs text-muted mt-3">
-          Example: half trailer at 500 lbs × $1.50/lb = {formatCurrency(750)}.
+          Example: 25% full at 1,000 lbs × $0.26/lb = {formatCurrency(260)}.
           Status labels for reference:{" "}
           {Object.values(STATUS_LABELS).slice(0, 3).join(", ")}…
         </p>

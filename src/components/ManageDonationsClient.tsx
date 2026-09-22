@@ -2,10 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  DonationsWeekCalendar,
+  currentWeekStart,
+  weekStartFromDateString,
+} from "@/components/DonationsWeekCalendar";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   DonationRequest,
   DONATION_STATUSES,
+  DROPOFF_STORES,
   LOAD_SIZE_LABELS,
   LoadValueSetting,
   STATUS_LABELS,
@@ -36,6 +42,12 @@ export function ManageDonationsClient({
   pickupReports,
 }: Props) {
   const [donations, setDonations] = useState(initialDonations);
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+  const [weekStart, setWeekStart] = useState(() =>
+    weekStartFromDateString(
+      initialDonations.find((donation) => donation.scheduled_date)?.scheduled_date,
+    ) || currentWeekStart(),
+  );
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<
@@ -56,6 +68,12 @@ export function ManageDonationsClient({
   const [message, setMessage] = useState("");
 
   const selected = donations.find((d) => d.id === selectedId) || null;
+
+  function selectDonation(id: string) {
+    setSelectedId(id);
+    setError("");
+    setMessage("");
+  }
 
   function loadDisplay(donationId: string) {
     const report = pickupReports[donationId];
@@ -224,6 +242,45 @@ export function ManageDonationsClient({
 
   return (
     <div className="space-y-5">
+      <div className="panel flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gw-blue">
+            Display
+          </p>
+          <p className="text-sm text-muted">
+            Switch between the request list and a weekly schedule board.
+          </p>
+        </div>
+        <div
+          className="inline-flex rounded-xl border border-line bg-surface p-1"
+          role="group"
+          aria-label="Manage donations view"
+        >
+          <button
+            type="button"
+            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+              viewMode === "table"
+                ? "bg-gw-blue text-white"
+                : "text-ink hover:bg-white"
+            }`}
+            onClick={() => setViewMode("table")}
+          >
+            Table view
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+              viewMode === "calendar"
+                ? "bg-gw-blue text-white"
+                : "text-ink hover:bg-white"
+            }`}
+            onClick={() => setViewMode("calendar")}
+          >
+            Calendar view
+          </button>
+        </div>
+      </div>
+
       <div className="panel p-3 sm:p-4 grid sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1.3fr)_minmax(10rem,0.8fr)_minmax(10rem,0.8fr)_minmax(12rem,0.9fr)_auto] gap-3 items-end">
         <input
           className="input min-h-11"
@@ -243,48 +300,57 @@ export function ManageDonationsClient({
             </option>
           ))}
         </select>
-        <select
-          className="select min-h-11"
-          value={dateRange}
-          onChange={(event) =>
-            setDateRange(
-              event.target.value as
-                | "all"
-                | "today"
-                | "next_7"
-                | "next_30"
-                | "custom",
-            )
-          }
-          aria-label="Pickup date range"
-        >
-          <option value="all">All pickup dates</option>
-          <option value="today">Today</option>
-          <option value="next_7">Next 7 days</option>
-          <option value="next_30">Next 30 days</option>
-          <option value="custom">Custom range</option>
-        </select>
-        <select
-          className="select min-h-11"
-          value={dateSort}
-          onChange={(event) =>
-            setDateSort(
-              event.target.value as
-                | "newest_request"
-                | "pickup_asc"
-                | "pickup_desc",
-            )
-          }
-          aria-label="Date sort order"
-        >
-          <option value="newest_request">Newest requests</option>
-          <option value="pickup_asc">Pickup: earliest first</option>
-          <option value="pickup_desc">Pickup: latest first</option>
-        </select>
+        {viewMode === "table" ? (
+          <>
+            <select
+              className="select min-h-11"
+              value={dateRange}
+              onChange={(event) =>
+                setDateRange(
+                  event.target.value as
+                    | "all"
+                    | "today"
+                    | "next_7"
+                    | "next_30"
+                    | "custom",
+                )
+              }
+              aria-label="Pickup date range"
+            >
+              <option value="all">All pickup dates</option>
+              <option value="today">Today</option>
+              <option value="next_7">Next 7 days</option>
+              <option value="next_30">Next 30 days</option>
+              <option value="custom">Custom range</option>
+            </select>
+            <select
+              className="select min-h-11"
+              value={dateSort}
+              onChange={(event) =>
+                setDateSort(
+                  event.target.value as
+                    | "newest_request"
+                    | "pickup_asc"
+                    | "pickup_desc",
+                )
+              }
+              aria-label="Date sort order"
+            >
+              <option value="newest_request">Newest requests</option>
+              <option value="pickup_asc">Pickup: earliest first</option>
+              <option value="pickup_desc">Pickup: latest first</option>
+            </select>
+          </>
+        ) : (
+          <div className="sm:col-span-2 rounded-lg bg-surface px-3 py-3 text-sm text-muted">
+            Calendar weeks are Monday–Sunday. Use Previous / Next week to move
+            through the schedule. Status and search filters still apply.
+          </div>
+        )}
         <p className="text-sm text-muted xl:text-right xl:pb-3">
           {filtered.length} request{filtered.length === 1 ? "" : "s"}
         </p>
-        {dateRange === "custom" && (
+        {viewMode === "table" && dateRange === "custom" && (
           <div className="sm:col-span-2 xl:col-span-5 grid sm:grid-cols-2 gap-3 rounded-lg bg-surface p-3">
             <label className="text-sm font-semibold">
               Pickup date from
@@ -309,6 +375,16 @@ export function ManageDonationsClient({
       </div>
 
       <div className="grid xl:grid-cols-[minmax(0,1.85fr)_minmax(19rem,0.72fr)] gap-4 items-start">
+        {viewMode === "calendar" ? (
+          <DonationsWeekCalendar
+            donations={filtered}
+            selectedId={selectedId}
+            weekStart={weekStart}
+            onWeekChange={setWeekStart}
+            onSelect={selectDonation}
+          />
+        ) : (
+          <>
         {/* Card list for phone / tablet */}
         <div className="xl:hidden space-y-3">
           {filtered.map((d) => {
@@ -318,14 +394,10 @@ export function ManageDonationsClient({
                 key={d.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => {
-                  setSelectedId(d.id);
-                  setError("");
-                  setMessage("");
-                }}
+                onClick={() => selectDonation(d.id)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
-                    setSelectedId(d.id);
+                    selectDonation(d.id);
                   }
                 }}
                 className={
@@ -348,6 +420,12 @@ export function ManageDonationsClient({
                 </div>
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
                   <span>{d.trailers?.name || "No trailer"}</span>
+                  <span>
+                    Store:{" "}
+                    <span className="font-semibold text-ink">
+                      {d.dropoff_store || "Unassigned"}
+                    </span>
+                  </span>
                   <span className="font-semibold">{loadDisplay(d.id)}</span>
                   {pickupReports[d.id]?.completed && (
                     <span>
@@ -386,6 +464,7 @@ export function ManageDonationsClient({
                 <th>Requested</th>
                 <th>Status</th>
                 <th>Trailer</th>
+                <th>Dropoff Store</th>
                 <th>Load</th>
                 <th>Value</th>
                 <th>Pickup Report</th>
@@ -395,11 +474,7 @@ export function ManageDonationsClient({
               {filtered.map((d) => (
                 <tr
                   key={d.id}
-                  onClick={() => {
-                    setSelectedId(d.id);
-                    setError("");
-                    setMessage("");
-                  }}
+                  onClick={() => selectDonation(d.id)}
                   className={
                     selectedId === d.id
                       ? "bg-[rgba(0,61,165,0.06)] cursor-pointer"
@@ -418,6 +493,7 @@ export function ManageDonationsClient({
                     <StatusBadge status={d.status} />
                   </td>
                   <td>{d.trailers?.name || "—"}</td>
+                  <td>{d.dropoff_store || "—"}</td>
                   <td>
                     <span className="font-semibold">{loadDisplay(d.id)}</span>
                     {pickupReports[d.id]?.completed && (
@@ -450,7 +526,7 @@ export function ManageDonationsClient({
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center text-muted py-10">
+                  <td colSpan={9} className="text-center text-muted py-10">
                     No matching requests
                   </td>
                 </tr>
@@ -458,6 +534,8 @@ export function ManageDonationsClient({
             </tbody>
           </table>
         </div>
+          </>
+        )}
 
         <aside className="panel p-4 sm:p-5 xl:sticky xl:top-6">
           {selected ? (
@@ -549,15 +627,38 @@ export function ManageDonationsClient({
               </label>
 
               <label className="block text-sm font-semibold">
+                Dropoff Store
+                <select
+                  className="select mt-1.5 min-h-11"
+                  value={selected.dropoff_store || ""}
+                  disabled={saving}
+                  onChange={(e) =>
+                    savePatch({ dropoff_store: e.target.value || null })
+                  }
+                >
+                  <option value="">Unassigned</option>
+                  {DROPOFF_STORES.map((store) => (
+                    <option key={store} value={store}>
+                      {store}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm font-semibold">
                 Scheduled date
                 <input
                   type="date"
                   className="input mt-1.5 min-h-11"
                   value={selected.scheduled_date || ""}
                   disabled={saving}
-                  onChange={(e) =>
-                    savePatch({ scheduled_date: e.target.value || null })
-                  }
+                  onChange={(e) => {
+                    const nextDate = e.target.value || null;
+                    savePatch({ scheduled_date: nextDate });
+                    if (nextDate) {
+                      setWeekStart(weekStartFromDateString(nextDate));
+                    }
+                  }}
                 />
               </label>
 
@@ -608,6 +709,13 @@ export function ManageDonationsClient({
               >
                 View signed request
               </Link>
+              {selected.signature && (
+                <p className="text-center text-xs text-muted">
+                  {selected.staff_signature
+                    ? "Agreement is counter-signed — export PDF from the signed request page."
+                    : "Applicant signed — open the signed request to counter-sign and export PDF."}
+                </p>
+              )}
 
               {pickupReports[selected.id]?.completed ? (
                 <Link

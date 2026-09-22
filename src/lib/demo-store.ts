@@ -1,7 +1,12 @@
+import { existsSync, readFileSync, writeFileSync } from "fs";
+import path from "path";
+import { deleteDemoUploads, demoDataDir } from "@/lib/demo-files";
 import {
   ACTIVE_TRAILER_STATUSES,
+  DEFAULT_LOAD_VALUE_SETTINGS,
   DonationRequest,
   DonationStatus,
+  LOAD_SIZES,
   LoadSize,
   LoadValueSetting,
   Trailer,
@@ -10,53 +15,19 @@ import {
 } from "@/lib/types";
 
 const now = () => new Date().toISOString();
+const STORE_FILE = () => path.join(demoDataDir(), "demo-store.json");
 
 function uid() {
   return crypto.randomUUID();
 }
 
-const defaultLoadSettings: LoadValueSetting[] = [
-  {
-    id: "ls-quarter",
-    load_size: "quarter",
-    label: "1/4 Trailer",
-    estimated_pounds: 250,
-    value_per_pound: 1.5,
+const defaultLoadSettings: LoadValueSetting[] = DEFAULT_LOAD_VALUE_SETTINGS.map(
+  (setting) => ({
+    id: `ls-${setting.load_size}`,
+    ...setting,
     updated_at: now(),
-  },
-  {
-    id: "ls-third",
-    load_size: "third",
-    label: "1/3 Trailer",
-    estimated_pounds: 350,
-    value_per_pound: 1.5,
-    updated_at: now(),
-  },
-  {
-    id: "ls-half",
-    load_size: "half",
-    label: "1/2 Trailer",
-    estimated_pounds: 500,
-    value_per_pound: 1.5,
-    updated_at: now(),
-  },
-  {
-    id: "ls-three-quarter",
-    load_size: "three_quarter",
-    label: "3/4 Trailer",
-    estimated_pounds: 750,
-    value_per_pound: 1.5,
-    updated_at: now(),
-  },
-  {
-    id: "ls-full",
-    load_size: "full",
-    label: "Full Trailer",
-    estimated_pounds: 1000,
-    value_per_pound: 1.5,
-    updated_at: now(),
-  },
-];
+  }),
+);
 
 type Store = {
   trailers: Trailer[];
@@ -121,15 +92,19 @@ function seedStore(): Store {
       signature: "Maria Lopez",
       signed_at: now(),
       agreement_version: "2026-09-07",
+      staff_signer_name: null,
+      staff_signature: null,
+      staff_signed_at: null,
       hold_harmless: true,
       agreements: { liability: true },
       raw_wufoo_payload: null,
       status: "scheduled",
       trailer_id: t1.id,
       scheduled_date: "2026-09-16",
+      dropoff_store: "Danbury",
       load_size: "half",
-      estimated_pounds: 500,
-      estimated_value: 750,
+      estimated_pounds: 2000,
+      estimated_value: 520,
       staff_notes: "Driveway access on left side",
       created_at: now(),
       updated_at: now(),
@@ -159,12 +134,16 @@ function seedStore(): Store {
       signature: "James Chen",
       signed_at: now(),
       agreement_version: "2026-09-07",
+      staff_signer_name: null,
+      staff_signature: null,
+      staff_signed_at: null,
       hold_harmless: true,
       agreements: { liability: true },
       raw_wufoo_payload: null,
       status: "requested",
       trailer_id: null,
       scheduled_date: null,
+      dropoff_store: null,
       load_size: null,
       estimated_pounds: null,
       estimated_value: null,
@@ -197,15 +176,19 @@ function seedStore(): Store {
       signature: "Priya Patel",
       signed_at: now(),
       agreement_version: "2026-09-07",
+      staff_signer_name: null,
+      staff_signature: null,
+      staff_signed_at: null,
       hold_harmless: true,
       agreements: { liability: true },
       raw_wufoo_payload: null,
       status: "trailer_on_site",
       trailer_id: t2.id,
       scheduled_date: "2026-09-12",
+      dropoff_store: "Bridgeport",
       load_size: "full",
-      estimated_pounds: 1000,
-      estimated_value: 1500,
+      estimated_pounds: 4000,
+      estimated_value: 1040,
       staff_notes: "Large furniture expected",
       created_at: now(),
       updated_at: now(),
@@ -235,15 +218,19 @@ function seedStore(): Store {
       signature: "Chris Nguyen",
       signed_at: now(),
       agreement_version: "2026-09-07",
+      staff_signer_name: null,
+      staff_signature: null,
+      staff_signed_at: null,
       hold_harmless: true,
       agreements: { liability: true },
       raw_wufoo_payload: null,
       status: "completed",
       trailer_id: null,
       scheduled_date: "2026-08-28",
+      dropoff_store: "Westport",
       load_size: "three_quarter",
-      estimated_pounds: 750,
-      estimated_value: 1125,
+      estimated_pounds: 3000,
+      estimated_value: 780,
       staff_notes: "Completed successfully",
       created_at: now(),
       updated_at: now(),
@@ -274,9 +261,133 @@ function seedStore(): Store {
   };
 }
 
+function persist(store: Store) {
+  writeFileSync(STORE_FILE(), JSON.stringify(store, null, 2), "utf8");
+}
+
+function normalizeLoadSettings(settings: LoadValueSetting[]): {
+  settings: LoadValueSetting[];
+  migrated: boolean;
+} {
+  const hasLegacyRate = settings.some(
+    (setting) => Number(setting.value_per_pound) === 1.5,
+  );
+  const hasLegacyThird = settings.some(
+    (setting) => String(setting.load_size) === "third",
+  );
+  const missingCanonical = defaultLoadSettings.some(
+    (defaults) =>
+      !settings.some((setting) => setting.load_size === defaults.load_size),
+  );
+
+  // Reset when the store still has legacy fullness options or the old $1.50/lb seed.
+  if (hasLegacyRate || hasLegacyThird || missingCanonical) {
+    return {
+      settings: defaultLoadSettings.map((item) => ({ ...item })),
+      migrated: true,
+    };
+  }
+
+  const next = defaultLoadSettings.map((defaults) => {
+    const existing = settings.find(
+      (setting) => setting.load_size === defaults.load_size,
+    );
+    if (!existing) return { ...defaults };
+    return {
+      ...defaults,
+      id: existing.id,
+      label: existing.label || defaults.label,
+      estimated_pounds: Number(existing.estimated_pounds),
+      value_per_pound: Number(existing.value_per_pound),
+      updated_at: existing.updated_at || defaults.updated_at,
+    };
+  });
+
+  return { settings: next, migrated: false };
+}
+
+function loadPersistedStore(): Store | null {
+  try {
+    const file = STORE_FILE();
+    if (!existsSync(file)) return null;
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as Store;
+    if (
+      !parsed ||
+      !Array.isArray(parsed.donations) ||
+      !Array.isArray(parsed.trailers) ||
+      !Array.isArray(parsed.reports) ||
+      !Array.isArray(parsed.loadSettings)
+    ) {
+      return null;
+    }
+    // Backfill newer fields and normalize load settings to current fullness options.
+    parsed.donations = parsed.donations.map((donation) => {
+      const loadSize =
+        donation.load_size &&
+        (LOAD_SIZES as readonly string[]).includes(donation.load_size)
+          ? donation.load_size
+          : null;
+      return {
+        ...donation,
+        staff_signer_name: donation.staff_signer_name ?? null,
+        staff_signature: donation.staff_signature ?? null,
+        staff_signed_at: donation.staff_signed_at ?? null,
+        dropoff_store: donation.dropoff_store ?? null,
+        load_size: loadSize,
+      };
+    });
+    const normalized = normalizeLoadSettings(parsed.loadSettings);
+    parsed.loadSettings = normalized.settings;
+    // Refresh donation estimates from the active load settings.
+    parsed.donations.forEach((donation) => {
+      if (!donation.load_size) return;
+      const setting = parsed.loadSettings.find(
+        (item) => item.load_size === donation.load_size,
+      );
+      if (!setting) return;
+      const estimate = calcLoadEstimate(
+        Number(setting.estimated_pounds),
+        Number(setting.value_per_pound),
+      );
+      donation.estimated_pounds = estimate.estimated_pounds;
+      donation.estimated_value = estimate.estimated_value;
+    });
+    if (normalized.migrated) {
+      writeFileSync(STORE_FILE(), JSON.stringify(parsed, null, 2), "utf8");
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 function getStore(): Store {
   if (!globalThis.__gtgDemoStore) {
-    globalThis.__gtgDemoStore = seedStore();
+    const existing = loadPersistedStore();
+    globalThis.__gtgDemoStore = existing ?? seedStore();
+    if (!existing) persist(globalThis.__gtgDemoStore);
+  } else {
+    // Hot reload can keep a stale in-memory store; re-align load settings.
+    const normalized = normalizeLoadSettings(
+      globalThis.__gtgDemoStore.loadSettings,
+    );
+    if (normalized.migrated) {
+      globalThis.__gtgDemoStore.loadSettings = normalized.settings;
+      globalThis.__gtgDemoStore.donations.forEach((donation) => {
+        if (!donation.load_size) return;
+        const setting = normalized.settings.find(
+          (item) => item.load_size === donation.load_size,
+        );
+        if (!setting) return;
+        const estimate = calcLoadEstimate(
+          Number(setting.estimated_pounds),
+          Number(setting.value_per_pound),
+        );
+        donation.estimated_pounds = estimate.estimated_pounds;
+        donation.estimated_value = estimate.estimated_value;
+      });
+      persist(globalThis.__gtgDemoStore);
+    }
   }
   return globalThis.__gtgDemoStore;
 }
@@ -359,6 +470,7 @@ export const demoDb = {
       updated_at: now(),
     };
     getStore().trailers.push(trailer);
+    persist(getStore());
     return trailer;
   },
 
@@ -369,6 +481,7 @@ export const demoDb = {
     const trailer = getStore().trailers.find((t) => t.id === id);
     if (!trailer) throw new Error("Trailer not found");
     Object.assign(trailer, patch, { updated_at: now() });
+    persist(getStore());
     return trailer;
   },
 
@@ -386,6 +499,7 @@ export const demoDb = {
     store.donations.forEach((d) => {
       if (d.trailer_id === id) d.trailer_id = null;
     });
+    persist(store);
   },
 
   listDonations() {
@@ -436,12 +550,16 @@ export const demoDb = {
       signature: input.signature ?? null,
       signed_at: input.signed_at ?? null,
       agreement_version: input.agreement_version ?? null,
+      staff_signer_name: input.staff_signer_name ?? null,
+      staff_signature: input.staff_signature ?? null,
+      staff_signed_at: input.staff_signed_at ?? null,
       hold_harmless: input.hold_harmless ?? false,
       agreements: input.agreements ?? {},
       raw_wufoo_payload: input.raw_wufoo_payload ?? null,
       status: input.status ?? "requested",
       trailer_id: input.trailer_id ?? null,
       scheduled_date: input.scheduled_date ?? null,
+      dropoff_store: input.dropoff_store ?? null,
       load_size: null,
       estimated_pounds: null,
       estimated_value: null,
@@ -454,6 +572,7 @@ export const demoDb = {
     if (input.load_size) applyLoadSize(donation, input.load_size);
 
     getStore().donations.unshift(donation);
+    persist(getStore());
     return withTrailer(donation);
   },
 
@@ -465,6 +584,7 @@ export const demoDb = {
         | "status"
         | "trailer_id"
         | "scheduled_date"
+        | "dropoff_store"
         | "load_size"
         | "staff_notes"
         | "first_name"
@@ -472,6 +592,9 @@ export const demoDb = {
         | "organization"
         | "phone"
         | "email"
+        | "staff_signer_name"
+        | "staff_signature"
+        | "staff_signed_at"
       >
     >,
   ) {
@@ -500,6 +623,7 @@ export const demoDb = {
       donation.trailer_id = null;
     }
 
+    persist(getStore());
     return withTrailer(donation);
   },
 
@@ -507,10 +631,16 @@ export const demoDb = {
     const store = getStore();
     const donation = store.donations.find((item) => item.id === id);
     if (!donation) throw new Error("Donation request not found");
+    const documentPaths = [
+      donation.parking_photo_path,
+      donation.license_photo_path,
+    ].filter((path): path is string => Boolean(path));
     store.donations = store.donations.filter((item) => item.id !== id);
     store.reports = store.reports.filter(
       (report) => report.donation_request_id !== id,
     );
+    persist(store);
+    if (documentPaths.length) deleteDemoUploads(documentPaths);
   },
 
   listReports() {
@@ -534,6 +664,7 @@ export const demoDb = {
     );
     if (existing) {
       Object.assign(existing, input, { updated_at: now() });
+      persist(getStore());
       return withDonation(existing);
     }
 
@@ -544,6 +675,7 @@ export const demoDb = {
       updated_at: now(),
     };
     getStore().reports.unshift(report);
+    persist(getStore());
     return withDonation(report);
   },
 
@@ -558,6 +690,7 @@ export const demoDb = {
     const setting = getStore().loadSettings.find((s) => s.load_size === loadSize);
     if (!setting) throw new Error("Load setting not found");
     Object.assign(setting, patch, { updated_at: now() });
+    persist(getStore());
     return setting;
   },
 

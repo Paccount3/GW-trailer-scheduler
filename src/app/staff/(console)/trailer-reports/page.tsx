@@ -14,9 +14,10 @@ export default async function TrailerReportsPage({
   searchParams: Promise<{ donation?: string }>;
 }) {
   const params = await searchParams;
-  const [reports, donations] = await Promise.all([
+  const [reports, donations, loadSettings] = await Promise.all([
     data.listReports(),
     data.listDonations(),
+    data.listLoadSettings(),
   ]);
 
   return (
@@ -34,6 +35,7 @@ export default async function TrailerReportsPage({
       <TrailerReportsClient
         initialReports={reports}
         donations={donations}
+        loadSettings={loadSettings}
         initialDonationId={params.donation}
       />
     </div>

@@ -23,7 +23,6 @@ export type ReportType = (typeof REPORT_TYPES)[number];
 
 export const LOAD_SIZES = [
   "quarter",
-  "third",
   "half",
   "three_quarter",
   "full",
@@ -31,12 +30,44 @@ export const LOAD_SIZES = [
 export type LoadSize = (typeof LOAD_SIZES)[number];
 
 export const LOAD_SIZE_LABELS: Record<LoadSize, string> = {
-  quarter: "1/4 Trailer",
-  third: "1/3 Trailer",
-  half: "1/2 Trailer",
-  three_quarter: "3/4 Trailer",
-  full: "Full Trailer",
+  quarter: "25% Full",
+  half: "50% Full",
+  three_quarter: "75% Full",
+  full: "100% Full",
 };
+
+/** Canonical trailer fullness defaults used by Settings and Trailer Reports. */
+export const DEFAULT_LOAD_VALUE_SETTINGS: Array<{
+  load_size: LoadSize;
+  label: string;
+  estimated_pounds: number;
+  value_per_pound: number;
+}> = [
+  {
+    load_size: "quarter",
+    label: "25% Full",
+    estimated_pounds: 1000,
+    value_per_pound: 0.26,
+  },
+  {
+    load_size: "half",
+    label: "50% Full",
+    estimated_pounds: 2000,
+    value_per_pound: 0.26,
+  },
+  {
+    load_size: "three_quarter",
+    label: "75% Full",
+    estimated_pounds: 3000,
+    value_per_pound: 0.26,
+  },
+  {
+    load_size: "full",
+    label: "100% Full",
+    estimated_pounds: 4000,
+    value_per_pound: 0.26,
+  },
+];
 
 export const STATUS_LABELS: Record<DonationStatus, string> = {
   requested: "Requested",
@@ -46,6 +77,33 @@ export const STATUS_LABELS: Record<DonationStatus, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
 };
+
+/** Goodwill store / yard locations where trailers are staged for drop-off. */
+export const DROPOFF_STORES = [
+  "Avon",
+  "Bloomfield",
+  "Bridgeport",
+  "Brookfield",
+  "Danbury",
+  "Enfield",
+  "Fairfield",
+  "Glastonbury",
+  "Manchester",
+  "Milford",
+  "Monroe",
+  "New Milford",
+  "Norwalk",
+  "Oxford",
+  "Shelton",
+  "Stamford – Broad",
+  "Stamford – Elm",
+  "Torrington",
+  "Transportation",
+  "Waterbury",
+  "Westport",
+] as const;
+
+export type DropoffStore = (typeof DROPOFF_STORES)[number];
 
 export type Trailer = {
   id: string;
@@ -81,12 +139,16 @@ export type DonationRequest = {
   signature: string | null;
   signed_at: string | null;
   agreement_version: string | null;
+  staff_signer_name: string | null;
+  staff_signature: string | null;
+  staff_signed_at: string | null;
   hold_harmless: boolean | null;
   agreements: Record<string, unknown> | null;
   raw_wufoo_payload: Record<string, unknown> | null;
   status: DonationStatus;
   trailer_id: string | null;
   scheduled_date: string | null;
+  dropoff_store: string | null;
   load_size: LoadSize | null;
   estimated_pounds: number | null;
   estimated_value: number | null;
@@ -157,7 +219,7 @@ export type PickupInspectionData = {
       photo_reference: string;
     }
   >;
-  estimated_load: "quarter" | "half" | "three_quarter" | "full" | "other";
+  estimated_load: LoadSize | "other";
   estimated_load_other: string;
   accepted_item_exception: "yes" | "no";
   accepted_item_exception_details: string;

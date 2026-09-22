@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { data } from "@/lib/data";
+import { saveDemoUpload } from "@/lib/demo-files";
 import {
   HOLD_HARMLESS_TEXT,
   HOLD_HARMLESS_VERSION,
@@ -62,14 +63,16 @@ function safeExtension(file: File) {
 }
 
 async function uploadPrivateImage(file: File, folder: string) {
+  const path = `${folder}/${crypto.randomUUID()}.${safeExtension(file)}`;
+  const bytes = await file.arrayBuffer();
+
   if (!isSupabaseConfigured()) {
-    return `demo/${folder}/${file.name}`;
+    return saveDemoUpload(path, bytes, file.type);
   }
 
-  const path = `${folder}/${crypto.randomUUID()}.${safeExtension(file)}`;
   const { error } = await getServiceSupabase().storage
     .from("request-documents")
-    .upload(path, await file.arrayBuffer(), {
+    .upload(path, bytes, {
       contentType: file.type,
       upsert: false,
     });

@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { ReportPhotoLink } from "@/components/ReportPhotoField";
 import {
   DonationRequest,
+  LOAD_SIZE_LABELS,
+  LoadSize,
   PickupInspectionData,
   TrailerReport,
   fullName,
@@ -57,6 +60,9 @@ const equipmentItems: Array<[string, string]> = [
 
 function valueLabel(value: string | undefined) {
   if (!value) return "—";
+  if (value in LOAD_SIZE_LABELS) {
+    return LOAD_SIZE_LABELS[value as LoadSize];
+  }
   return value
     .replaceAll("_", " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -87,13 +93,12 @@ function ResultRows({
               {valueLabel(item?.result)}
             </span>
             {(item?.notes || item?.photo_reference) && (
-              <p className="text-sm text-muted sm:col-span-2">
-                {item.notes}
-                {item.notes && item.photo_reference ? " · " : ""}
-                {item.photo_reference
-                  ? `Photo: ${item.photo_reference}`
-                  : ""}
-              </p>
+              <div className="sm:col-span-2 space-y-2">
+                {item.notes && (
+                  <p className="text-sm text-muted">{item.notes}</p>
+                )}
+                <ReportPhotoLink path={item.photo_reference} />
+              </div>
             )}
           </div>
         );
@@ -236,13 +241,13 @@ export function CompletedReportView({
                 {(item?.missing_or_damaged ||
                   item?.notes ||
                   item?.photo_reference) && (
-                  <p className="text-sm text-muted sm:col-span-3">
-                    {item.missing_or_damaged ? "Missing/damaged. " : ""}
-                    {item.notes}
-                    {item.photo_reference
-                      ? ` Photo: ${item.photo_reference}`
-                      : ""}
-                  </p>
+                  <div className="sm:col-span-3 space-y-2">
+                    <p className="text-sm text-muted">
+                      {item.missing_or_damaged ? "Missing/damaged. " : ""}
+                      {item.notes}
+                    </p>
+                    <ReportPhotoLink path={item.photo_reference} />
+                  </div>
                 )}
               </div>
             );
@@ -265,10 +270,8 @@ export function CompletedReportView({
               <p className="text-sm text-muted">
                 {entry.description || "No entry"}
                 {entry.action_taken ? ` · Action: ${entry.action_taken}` : ""}
-                {entry.photo_reference
-                  ? ` · Photo: ${entry.photo_reference}`
-                  : ""}
               </p>
+              <ReportPhotoLink path={entry.photo_reference} />
             </div>
           ))}
         </div>

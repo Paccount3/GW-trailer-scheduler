@@ -138,6 +138,7 @@ export const data = {
         | "status"
         | "trailer_id"
         | "scheduled_date"
+        | "dropoff_store"
         | "load_size"
         | "staff_notes"
         | "first_name"
@@ -145,6 +146,9 @@ export const data = {
         | "organization"
         | "phone"
         | "email"
+        | "staff_signer_name"
+        | "staff_signature"
+        | "staff_signed_at"
       >
     >,
   ) {
@@ -195,6 +199,21 @@ export const data = {
     }
   },
 
+  async countersignDonation(
+    id: string,
+    input: {
+      staff_signer_name: string;
+      staff_signature: string;
+    },
+  ) {
+    const signedAt = new Date().toISOString();
+    return this.updateDonation(id, {
+      staff_signer_name: input.staff_signer_name.trim(),
+      staff_signature: input.staff_signature.trim(),
+      staff_signed_at: signedAt,
+    });
+  },
+
   async listReports(): Promise<TrailerReport[]> {
     if (!isSupabaseConfigured()) return demoDb.listReports();
     const { data: rows, error } = await getServiceSupabase()
@@ -232,6 +251,7 @@ export const data = {
     const { data: rows, error } = await getServiceSupabase()
       .from("load_value_settings")
       .select("*")
+      .in("load_size", ["quarter", "half", "three_quarter", "full"])
       .order("estimated_pounds");
     if (error) throw error;
     return rows ?? [];

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaffFromRequest } from "@/lib/auth";
+import { readDemoUpload } from "@/lib/demo-files";
 import {
   getServiceSupabase,
   isSupabaseConfigured,
@@ -14,11 +15,18 @@ export async function GET(request: NextRequest) {
   if (!path || path.includes("..")) {
     return NextResponse.json({ error: "Invalid document path" }, { status: 400 });
   }
+
   if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      { error: "Demo uploads are not persisted. Connect Supabase to view files." },
-      { status: 404 },
-    );
+    const file = readDemoUpload(path);
+    if (!file) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+    return new NextResponse(new Uint8Array(file.buffer), {
+      headers: {
+        "Content-Type": file.contentType,
+        "Cache-Control": "private, max-age=60",
+      },
+    });
   }
 
   const { data, error } = await getServiceSupabase().storage

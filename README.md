@@ -11,7 +11,7 @@ Next.js + Supabase app for Goodwill mobile donation trailer scheduling and staff
 | `/staff/login` | Public | Staff password gate |
 | `/staff/manage` | Staff | Manage Donations table + status / trailer assignment |
 | `/staff/trailer-reports` | Staff | Drop-off / pickup condition reports linked to requests |
-| `/staff/reports` | Staff | Charts & metrics (expandable later) |
+| `/staff/reports` | Staff | Charts & metrics |
 | `/staff/settings` | Staff | Trailer inventory + load value estimate variables |
 
 ## Quick start
@@ -26,7 +26,10 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Staff password defaults to `goodwill` (override with `STAFF_PASSWORD`).
 
-Without Supabase env vars, the app runs on an in-memory **demo store** so you can click through the full staff UI immediately.
+Without Supabase env vars, the app uses a **file-backed local store** in `.data/`
+so public requests, uploaded photos, staff edits, and trailer reports survive
+server restarts. When Supabase credentials are added later, the same app uses
+your hosted database and storage instead.
 
 ## Supabase
 
@@ -40,6 +43,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
+If an earlier schema is already installed, also run migrations in `supabase/`,
+including `migration_staff_countersign.sql`.
+
 ## Native public request form
 
 The public form saves requests directly to `donation_requests`. Supabase assigns
@@ -47,13 +53,18 @@ the next human-readable work-order number. Parking and identity photos are kept
 in the private `request-documents` Storage bucket and are opened through a
 staff-authorized, short-lived signed URL.
 
+Locally (no Supabase), photos are stored under `.data/uploads/` and served by
+the same staff document endpoint.
+
+From Manage Donations, staff can open the signed request, add a Goodwill
+counter-signature, and export the full agreement as a PDF.
+
 If the original database schema is already installed, run:
 
 ```text
 supabase/migration_native_request_form.sql
+supabase/migration_staff_countersign.sql
 ```
-
-The in-memory demo accepts submissions but does not persist uploaded files.
 
 ## Trailer scheduling rules
 
@@ -73,5 +84,5 @@ Manage Donations applies those variables when a load size is selected.
 ## Deploy (Vercel)
 
 1. Push repo and import into Vercel.
-2. Add the same env vars.
-3. Deploy. Point Wufoo webhook at the production `/api/webhooks/wufoo` URL.
+2. Add the Supabase env vars.
+3. Deploy.
