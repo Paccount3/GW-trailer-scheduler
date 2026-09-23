@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -13,8 +13,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { ensureBrowserDemo } from "@/lib/browser-demo-store";
 import {
   DonationRequest,
+  DROPOFF_STORES,
   LoadValueSetting,
   STATUS_LABELS,
   TrailerReport,
@@ -25,6 +27,7 @@ type Props = {
   donations: DonationRequest[];
   reports: TrailerReport[];
   loadSettings: LoadValueSetting[];
+  browserDemo?: boolean;
 };
 
 type DateRange = "all" | "last_30" | "last_90" | "year" | "custom";
@@ -80,10 +83,34 @@ function estimatedTotals(
   );
 }
 
-export function ReportsCharts({ donations, reports, loadSettings }: Props) {
+export function ReportsCharts({
+  donations: initialDonations,
+  reports: initialReports,
+  loadSettings: initialLoadSettings,
+  browserDemo = false,
+}: Props) {
+  const [hydrated, setHydrated] = useState(!browserDemo);
+  const [donations, setDonations] = useState(
+    browserDemo ? [] : initialDonations,
+  );
+  const [reports, setReports] = useState(browserDemo ? [] : initialReports);
+  const [loadSettings, setLoadSettings] = useState(initialLoadSettings);
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  useEffect(() => {
+    if (!browserDemo) return;
+    const state = ensureBrowserDemo({
+      loadSettings: initialLoadSettings,
+    });
+    setDonations(state.donations);
+    setReports(state.reports);
+    setLoadSettings(
+      state.loadSettings.length ? state.loadSettings : initialLoadSettings,
+    );
+    setHydrated(true);
+  }, [browserDemo, initialLoadSettings]);
 
   const filtered = useMemo(() => {
     let from = "";
@@ -151,6 +178,69 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
     const byStatus = countBy(
       (donation) => STATUS_LABELS[donation.status] || donation.status,
     );
+
+    const storeCounts = new Map<string, {
+      requests: number;
+      completed: number;
+      scheduled: number;
+      active: number;
+    }>();
+    for (const store of DROPOFF_STORES) {
+      storeCounts.set(store, {
+        requests: 0,
+        completed: 0,
+        scheduled: 0,
+        active: 0,
+      });
+    }
+    storeCounts.set("Unassigned", {
+      requests: 0,
+      completed: 0,
+      scheduled: 0,
+      active: 0,
+    });
+
+    for (const donation of filtered) {
+      const storeName =
+        donation.dropoff_store?.trim() &&
+        (DROPOFF_STORES as readonly string[]).includes(donation.dropoff_store)
+          ? donation.dropoff_store
+          : donation.dropoff_store?.trim() || "Unassigned";
+      const current = storeCounts.get(storeName) || {
+        requests: 0,
+        completed: 0,
+        scheduled: 0,
+        active: 0,
+      };
+      current.requests += 1;
+      if (donation.status === "completed") current.completed += 1;
+      if (donation.scheduled_date) current.scheduled += 1;
+      if (
+        ["scheduled", "trailer_on_site", "ready_for_pickup"].includes(
+          donation.status,
+        )
+      ) {
+        current.active += 1;
+      }
+      storeCounts.set(storeName, current);
+    }
+
+    const dropoffStores = Array.from(storeCounts.entries())
+      .map(([name, counts]) => ({
+        name,
+        ...counts,
+        share: filtered.length
+          ? Math.round((counts.requests / filtered.length) * 1000) / 10
+          : 0,
+      }))
+      .sort((a, b) => {
+        if (a.name === "Unassigned") return 1;
+        if (b.name === "Unassigned") return -1;
+        return (
+          b.requests - a.requests || a.name.localeCompare(b.name)
+        );
+      });
+
     const monthly = Object.entries(
       filtered.reduce<Record<string, number>>((counts, donation) => {
         const month = donation.created_at.slice(0, 7);
@@ -189,6 +279,13 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
       sources,
       trailers,
       byStatus,
+      dropoffStores,
+      storesWithRequests: dropoffStores.filter(
+        (store) => store.name !== "Unassigned" && store.requests > 0,
+      ).length,
+      missingDropoffStore: filtered.filter(
+        (donation) => !donation.dropoff_store?.trim(),
+      ).length,
       monthly,
       completedPickupReports,
       pickupReportRate: pickupReports.length
@@ -212,6 +309,12 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
           : dateRange === "year"
             ? "Year to date"
             : "Custom range";
+
+  if (browserDemo && !hydrated) {
+    return (
+      <div className="panel p-8 text-muted">Loading browser demo data…</div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -319,6 +422,95 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
         </div>
       ) : (
         <>
+          <section className="panel overflow-hidden">
+            <div className="border-b border-line px-4 py-4 sm:px-5 sm:py-5">
+              <h2 className="text-xl font-bold text-ink">
+                Drop-off store destinations
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Where trailers are staged for drop-off —{" "}
+                {metrics.storesWithRequests} store
+                {metrics.storesWithRequests === 1 ? "" : "s"} with assigned
+                requests in this period
+                {metrics.missingDropoffStore > 0
+                  ? ` · ${metrics.missingDropoffStore} unassigned`
+                  : ""}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[40rem] text-left text-sm">
+                <thead className="bg-surface text-xs font-bold uppercase tracking-wide text-muted">
+                  <tr>
+                    <th className="px-4 py-3 sm:px-5">Drop-off store</th>
+                    <th className="px-3 py-3 text-right">Requests</th>
+                    <th className="px-3 py-3 text-right">Share</th>
+                    <th className="px-3 py-3 text-right">Active</th>
+                    <th className="px-3 py-3 text-right">Scheduled</th>
+                    <th className="px-4 py-3 text-right sm:px-5">Completed</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {metrics.dropoffStores.map((store) => {
+                    const isUnassigned = store.name === "Unassigned";
+                    const barWidth = filtered.length
+                      ? Math.max(
+                          store.requests > 0
+                            ? (store.requests / filtered.length) * 100
+                            : 0,
+                          0,
+                        )
+                      : 0;
+                    return (
+                      <tr
+                        key={store.name}
+                        className={
+                          store.requests === 0 && !isUnassigned
+                            ? "bg-white text-muted"
+                            : "bg-white"
+                        }
+                      >
+                        <td className="px-4 py-3 sm:px-5">
+                          <div className="min-w-0">
+                            <p
+                              className={`font-semibold ${
+                                isUnassigned ? "text-amber-800" : "text-ink"
+                              }`}
+                            >
+                              {store.name}
+                            </p>
+                            <div className="mt-1.5 h-1.5 max-w-xs overflow-hidden rounded-full bg-gw-blue-soft">
+                              <div
+                                className={`h-full rounded-full ${
+                                  isUnassigned ? "bg-amber-500" : "bg-gw-blue"
+                                }`}
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-ink">
+                          {formatNumber(store.requests)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-muted">
+                          {store.share}%
+                        </td>
+                        <td className="px-3 py-3 text-right font-semibold text-ink">
+                          {formatNumber(store.active)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-ink">
+                          {formatNumber(store.scheduled)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-ink sm:px-5">
+                          {formatNumber(store.completed)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
           <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
             <div className="panel p-5">
               <div className="mb-4">
@@ -463,6 +655,10 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
                 <OperationRow
                   label="Requests without a scheduled date"
                   value={metrics.unscheduled}
+                />
+                <OperationRow
+                  label="Requests without a drop-off store"
+                  value={metrics.missingDropoffStore}
                 />
                 <OperationRow
                   label="Requests without a town"

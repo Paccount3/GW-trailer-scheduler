@@ -135,7 +135,7 @@ export function DonationsWeekCalendar({
             return (
               <div
                 key={key}
-                className={`min-h-64 min-w-0 space-y-1.5 p-1 sm:p-1.5 ${
+                className={`min-h-[32rem] min-w-0 space-y-1.5 overflow-y-auto p-1 sm:min-h-[36rem] sm:p-1.5 ${
                   isToday ? "bg-[rgba(0,87,200,0.04)]" : "bg-white"
                 }`}
               >
