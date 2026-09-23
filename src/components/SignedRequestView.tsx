@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { downloadSignedAgreementPdf } from "@/lib/agreement-pdf";
+import {
+  getBrowserDonation,
+  updateBrowserDonation,
+} from "@/lib/browser-demo-store";
 import { HOLD_HARMLESS_TEXT } from "@/lib/hold-harmless";
 import { DonationRequest, fullName } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -15,9 +19,12 @@ function DocumentLink({
   children: React.ReactNode;
 }) {
   if (!path) return <span className="text-muted">Not available</span>;
+  const href = path.startsWith("data:")
+    ? path
+    : `/api/request-documents?path=${encodeURIComponent(path)}`;
   return (
     <a
-      href={`/api/request-documents?path=${encodeURIComponent(path)}`}
+      href={href}
       target="_blank"
       rel="noreferrer"
       className="btn btn-secondary"
@@ -29,20 +36,62 @@ function DocumentLink({
 
 export function SignedRequestView({
   donation: initialDonation,
+  donationId,
+  browserDemo = false,
 }: {
-  donation: DonationRequest;
+  donation: DonationRequest | null;
+  donationId: string;
+  browserDemo?: boolean;
 }) {
-  const [donation, setDonation] = useState(initialDonation);
-  const [staffName, setStaffName] = useState(donation.staff_signer_name || "");
+  const [donation, setDonation] = useState<DonationRequest | null>(
+    browserDemo ? null : initialDonation,
+  );
+  const [missing, setMissing] = useState(false);
+  const [staffName, setStaffName] = useState(
+    initialDonation?.staff_signer_name || "",
+  );
   const [staffSignature, setStaffSignature] = useState(
-    donation.staff_signature || "",
+    initialDonation?.staff_signature || "",
   );
   const [editingSignature, setEditingSignature] = useState(
-    !donation.staff_signature,
+    !initialDonation?.staff_signature,
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!browserDemo) return;
+    const stored = getBrowserDonation(donationId);
+    if (!stored) {
+      setMissing(true);
+      return;
+    }
+    setDonation(stored);
+    setStaffName(stored.staff_signer_name || "");
+    setStaffSignature(stored.staff_signature || "");
+    setEditingSignature(!stored.staff_signature);
+  }, [browserDemo, donationId]);
+
+  if (browserDemo && !donation && !missing) {
+    return <div className="panel p-8 text-muted">Loading signed request…</div>;
+  }
+
+  if (!donation || missing) {
+    return (
+      <div className="panel p-8">
+        <h1 className="text-2xl font-bold">Request not found</h1>
+        <p className="mt-2 text-muted">
+          {browserDemo
+            ? "This request is not in this browser’s demo storage. Submit it again from the public request form on this same device/browser."
+            : "The requested trailer request could not be found."}
+        </p>
+        <Link href="/staff/manage" className="btn btn-secondary mt-4 inline-flex">
+          Back to Manage Donations
+        </Link>
+      </div>
+    );
+  }
 
   const agreements = donation.agreements || {};
   const agreementText =
@@ -61,29 +110,50 @@ export function SignedRequestView({
   const countersigned = Boolean(donation.staff_signature && donation.staff_signed_at);
 
   async function saveCountersign() {
+    if (!donation) return;
     setSaving(true);
     setError("");
     setMessage("");
 
-    const res = await fetch(`/api/donations/${donation.id}/countersign`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        staff_signer_name: staffName,
-        staff_signature: staffSignature,
-      }),
-    });
-    const body = await res.json().catch(() => ({}));
-    setSaving(false);
+    try {
+      if (browserDemo) {
+        const updated = updateBrowserDonation(donation.id, {
+          staff_signer_name: staffName.trim(),
+          staff_signature: staffSignature.trim(),
+          staff_signed_at: new Date().toISOString(),
+        });
+        setDonation(updated);
+        setEditingSignature(false);
+        setMessage("Goodwill counter-signature saved.");
+        setSaving(false);
+        return;
+      }
 
-    if (!res.ok) {
-      setError(body.error || "Unable to save counter-signature");
-      return;
+      const res = await fetch(`/api/donations/${donation.id}/countersign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staff_signer_name: staffName,
+          staff_signature: staffSignature,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      setSaving(false);
+
+      if (!res.ok) {
+        setError(body.error || "Unable to save counter-signature");
+        return;
+      }
+
+      setDonation(body as DonationRequest);
+      setEditingSignature(false);
+      setMessage("Goodwill counter-signature saved.");
+    } catch (err) {
+      setSaving(false);
+      setError(
+        err instanceof Error ? err.message : "Unable to save counter-signature",
+      );
     }
-
-    setDonation(body as DonationRequest);
-    setEditingSignature(false);
-    setMessage("Goodwill counter-signature saved.");
   }
 
   return (

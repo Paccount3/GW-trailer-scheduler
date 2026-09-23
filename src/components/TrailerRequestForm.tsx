@@ -4,9 +4,16 @@ import { FormEvent, useState } from "react";
 import { CheckCircle2, FileCheck2, MapPin, ShieldCheck } from "lucide-react";
 import {
   HOLD_HARMLESS_TEXT,
+  HOLD_HARMLESS_VERSION,
   NON_DONATABLE_ITEMS,
   SERVICE_TOWNS,
 } from "@/lib/hold-harmless";
+import {
+  fileToDataUrl,
+  nextBrowserReferenceCode,
+  upsertBrowserDonation,
+} from "@/lib/browser-demo-store";
+import { DonationRequest } from "@/lib/types";
 
 function AgreementCheckbox({
   name,
@@ -28,11 +35,103 @@ function AgreementCheckbox({
   );
 }
 
-export function TrailerRequestForm() {
+export function TrailerRequestForm({
+  browserDemo = false,
+}: {
+  browserDemo?: boolean;
+}) {
   const [addressType, setAddressType] = useState("residential");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [referenceCode, setReferenceCode] = useState<string | null>(null);
+
+  async function submitBrowserDemo(formElement: HTMLFormElement) {
+    const form = new FormData(formElement);
+    const parkingPhoto = form.get("parking_photo");
+    const licensePhoto = form.get("license_photo");
+    if (!(parkingPhoto instanceof File) || parkingPhoto.size === 0) {
+      throw new Error("Parking location photo is required.");
+    }
+    if (!(licensePhoto instanceof File) || licensePhoto.size === 0) {
+      throw new Error("Driver’s license photo is required.");
+    }
+
+    const [parkingPhotoPath, licensePhotoPath] = await Promise.all([
+      fileToDataUrl(parkingPhoto),
+      fileToDataUrl(licensePhoto),
+    ]);
+
+    const signedAt = new Date().toISOString();
+    const requestedDurationDays = Number(form.get("requested_duration_days"));
+    const scheduledDate = String(form.get("scheduled_date") || "");
+    const firstName = String(form.get("first_name") || "").trim();
+    const lastName = String(form.get("last_name") || "").trim();
+    const signature = String(form.get("signature") || "").trim();
+
+    const donation: DonationRequest = {
+      id: crypto.randomUUID(),
+      reference_code: nextBrowserReferenceCode(),
+      wufoo_entry_id: null,
+      first_name: firstName,
+      last_name: lastName,
+      organization: String(form.get("organization") || "").trim() || null,
+      address_type:
+        form.get("address_type") === "organization"
+          ? "organization"
+          : "residential",
+      dropoff_town: String(form.get("dropoff_town") || "") || null,
+      phone: String(form.get("phone") || "").trim() || null,
+      email: String(form.get("email") || "").trim() || null,
+      address_line1: String(form.get("address_line1") || "").trim() || null,
+      address_line2: String(form.get("address_line2") || "").trim() || null,
+      city: String(form.get("city") || "").trim() || null,
+      state: String(form.get("state") || "").trim() || null,
+      zip: String(form.get("zip") || "").trim() || null,
+      requested_days: `${requestedDurationDays} days beginning ${scheduledDate}`,
+      requested_duration_days: requestedDurationDays,
+      parking_location_description:
+        String(form.get("parking_location_description") || "").trim() || null,
+      parking_photo_path: parkingPhotoPath,
+      license_photo_path: licensePhotoPath,
+      heard_about: String(form.get("heard_about") || "").trim() || null,
+      signature,
+      signed_at: signedAt,
+      agreement_version: HOLD_HARMLESS_VERSION,
+      staff_signer_name: null,
+      staff_signature: null,
+      staff_signed_at: null,
+      hold_harmless: true,
+      agreements: {
+        source: "native_web_form_browser_demo",
+        hold_harmless_agreed: true,
+        non_donatable_agreed: true,
+        intended_use_agreed: true,
+        lock_removal_agreed: true,
+        stationary_agreed: true,
+        goodwill_only_agreed: true,
+        lawn_sign_agreed: true,
+        agreement_version: HOLD_HARMLESS_VERSION,
+        agreement_snapshot: HOLD_HARMLESS_TEXT,
+        signed_at: signedAt,
+        country: String(form.get("country") || "").trim() || null,
+      },
+      raw_wufoo_payload: null,
+      status: "requested",
+      trailer_id: null,
+      scheduled_date: scheduledDate || null,
+      dropoff_store: null,
+      load_size: null,
+      estimated_pounds: null,
+      estimated_value: null,
+      staff_notes: null,
+      created_at: signedAt,
+      updated_at: signedAt,
+      trailers: null,
+    };
+
+    upsertBrowserDonation(donation);
+    return donation.reference_code;
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,29 +140,47 @@ export function TrailerRequestForm() {
 
     setSubmitting(true);
     setError("");
-    const response = await fetch("/api/requests", {
-      method: "POST",
-      body: new FormData(formElement),
-    });
-    const body = await response.json().catch(() => ({}));
-    setSubmitting(false);
 
-    if (!response.ok) {
-      setError(body.error || "Unable to submit your request.");
-      if (body.field) {
-        const field = formElement.elements.namedItem(String(body.field));
-        if (field instanceof HTMLElement) {
-          field.focus();
-          field.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
+    try {
+      if (browserDemo) {
+        const code = await submitBrowserDemo(formElement);
+        setReferenceCode(code);
+        formElement.reset();
+        setAddressType("residential");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setSubmitting(false);
+        return;
       }
-      return;
-    }
 
-    setReferenceCode(body.reference_code);
-    formElement.reset();
-    setAddressType("residential");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+      const response = await fetch("/api/requests", {
+        method: "POST",
+        body: new FormData(formElement),
+      });
+      const body = await response.json().catch(() => ({}));
+      setSubmitting(false);
+
+      if (!response.ok) {
+        setError(body.error || "Unable to submit your request.");
+        if (body.field) {
+          const field = formElement.elements.namedItem(String(body.field));
+          if (field instanceof HTMLElement) {
+            field.focus();
+            field.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }
+        return;
+      }
+
+      setReferenceCode(body.reference_code);
+      formElement.reset();
+      setAddressType("residential");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setSubmitting(false);
+      setError(
+        err instanceof Error ? err.message : "Unable to submit your request.",
+      );
+    }
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -95,6 +212,12 @@ export function TrailerRequestForm() {
                 This request is not yet a guaranteed reservation. Goodwill staff
                 will contact you after reviewing availability and placement.
               </p>
+              {browserDemo && (
+                <p className="mt-3 text-sm font-semibold text-gw-blue-deep">
+                  Demo mode: this request is saved in this browser and will
+                  appear on Manage Donations here.
+                </p>
+              )}
               <button
                 type="button"
                 className="btn btn-primary mt-6 min-h-14 w-full text-lg"

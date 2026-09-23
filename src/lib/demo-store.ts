@@ -66,192 +66,8 @@ function seedStore(): Store {
     updated_at: now(),
   };
 
-  const donations: DonationRequest[] = [
-    {
-      id: "don-1",
-      reference_code: "1001",
-      wufoo_entry_id: "wufoo-101",
-      first_name: "Maria",
-      last_name: "Lopez",
-      organization: "Lopez Family",
-      address_type: "residential",
-      dropoff_town: "Bethel",
-      phone: "555-0101",
-      email: "maria@example.com",
-      address_line1: "12 Oak Street",
-      address_line2: null,
-      city: "Springfield",
-      state: "IL",
-      zip: "62701",
-      requested_days: "Week of Sept 15",
-      requested_duration_days: 3,
-      parking_location_description: "Flat driveway on the left side.",
-      parking_photo_path: null,
-      license_photo_path: null,
-      heard_about: "Social media",
-      signature: "Maria Lopez",
-      signed_at: now(),
-      agreement_version: "2026-09-07",
-      staff_signer_name: null,
-      staff_signature: null,
-      staff_signed_at: null,
-      hold_harmless: true,
-      agreements: { liability: true },
-      raw_wufoo_payload: null,
-      status: "scheduled",
-      trailer_id: t1.id,
-      scheduled_date: "2026-09-16",
-      dropoff_store: "Danbury",
-      load_size: "half",
-      estimated_pounds: 2000,
-      estimated_value: 520,
-      staff_notes: "Driveway access on left side",
-      created_at: now(),
-      updated_at: now(),
-    },
-    {
-      id: "don-2",
-      reference_code: "1002",
-      wufoo_entry_id: "wufoo-102",
-      first_name: "James",
-      last_name: "Chen",
-      organization: "Chen Estate Sale",
-      address_type: "organization",
-      dropoff_town: "Darien",
-      phone: "555-0102",
-      email: "james@example.com",
-      address_line1: "88 Maple Ave",
-      address_line2: "Unit B",
-      city: "Springfield",
-      state: "IL",
-      zip: "62702",
-      requested_days: "Anytime next week",
-      requested_duration_days: 2,
-      parking_location_description: "Rear parking lot.",
-      parking_photo_path: null,
-      license_photo_path: null,
-      heard_about: "Goodwill website",
-      signature: "James Chen",
-      signed_at: now(),
-      agreement_version: "2026-09-07",
-      staff_signer_name: null,
-      staff_signature: null,
-      staff_signed_at: null,
-      hold_harmless: true,
-      agreements: { liability: true },
-      raw_wufoo_payload: null,
-      status: "requested",
-      trailer_id: null,
-      scheduled_date: null,
-      dropoff_store: null,
-      load_size: null,
-      estimated_pounds: null,
-      estimated_value: null,
-      staff_notes: null,
-      created_at: now(),
-      updated_at: now(),
-    },
-    {
-      id: "don-3",
-      reference_code: "1003",
-      wufoo_entry_id: "wufoo-103",
-      first_name: "Priya",
-      last_name: "Patel",
-      organization: null,
-      address_type: "residential",
-      dropoff_town: "Fairfield",
-      phone: "555-0103",
-      email: "priya@example.com",
-      address_line1: "401 Lake Road",
-      address_line2: null,
-      city: "Springfield",
-      state: "IL",
-      zip: "62703",
-      requested_days: "Sept 20–22",
-      requested_duration_days: 3,
-      parking_location_description: "Gravel pad beside garage.",
-      parking_photo_path: null,
-      license_photo_path: null,
-      heard_about: "Friend or family",
-      signature: "Priya Patel",
-      signed_at: now(),
-      agreement_version: "2026-09-07",
-      staff_signer_name: null,
-      staff_signature: null,
-      staff_signed_at: null,
-      hold_harmless: true,
-      agreements: { liability: true },
-      raw_wufoo_payload: null,
-      status: "trailer_on_site",
-      trailer_id: t2.id,
-      scheduled_date: "2026-09-12",
-      dropoff_store: "Bridgeport",
-      load_size: "full",
-      estimated_pounds: 4000,
-      estimated_value: 1040,
-      staff_notes: "Large furniture expected",
-      created_at: now(),
-      updated_at: now(),
-    },
-    {
-      id: "don-4",
-      reference_code: "1004",
-      wufoo_entry_id: "wufoo-104",
-      first_name: "Chris",
-      last_name: "Nguyen",
-      organization: "Nguyen Household",
-      address_type: "residential",
-      dropoff_town: "Westport",
-      phone: "555-0104",
-      email: "chris@example.com",
-      address_line1: "9 Birch Lane",
-      address_line2: null,
-      city: "Springfield",
-      state: "IL",
-      zip: "62704",
-      requested_days: "Flexible",
-      requested_duration_days: 2,
-      parking_location_description: "Street in front of home.",
-      parking_photo_path: null,
-      license_photo_path: null,
-      heard_about: "Social media",
-      signature: "Chris Nguyen",
-      signed_at: now(),
-      agreement_version: "2026-09-07",
-      staff_signer_name: null,
-      staff_signature: null,
-      staff_signed_at: null,
-      hold_harmless: true,
-      agreements: { liability: true },
-      raw_wufoo_payload: null,
-      status: "completed",
-      trailer_id: null,
-      scheduled_date: "2026-08-28",
-      dropoff_store: "Westport",
-      load_size: "three_quarter",
-      estimated_pounds: 3000,
-      estimated_value: 780,
-      staff_notes: "Completed successfully",
-      created_at: now(),
-      updated_at: now(),
-    },
-  ];
-
-  const reports: TrailerReport[] = [
-    {
-      id: "rep-1",
-      donation_request_id: "don-3",
-      report_type: "dropoff",
-      is_completed: true,
-      completed_at: now(),
-      outside_condition: "good",
-      notes: "Parked on gravel pad",
-      submitted_by: "Driver Sam",
-      extras: {},
-      created_at: now(),
-      updated_at: now(),
-    },
-  ];
+  const donations: DonationRequest[] = [];
+  const reports: TrailerReport[] = [];
 
   return {
     trailers: [t1, t2, t3],
@@ -321,6 +137,25 @@ function loadPersistedStore(): Store | null {
       return null;
     }
     // Backfill newer fields and normalize load settings to current fullness options.
+    // Drop old filler/sample donation rows from earlier prototypes.
+    const sampleIds = new Set(["don-1", "don-2", "don-3", "don-4"]);
+    const sampleNames = new Set([
+      "maria lopez",
+      "james chen",
+      "priya patel",
+      "chris nguyen",
+    ]);
+    parsed.donations = parsed.donations.filter((donation) => {
+      if (sampleIds.has(donation.id)) return false;
+      const name = `${donation.first_name} ${donation.last_name}`
+        .trim()
+        .toLowerCase();
+      return !sampleNames.has(name);
+    });
+    const keptIds = new Set(parsed.donations.map((donation) => donation.id));
+    parsed.reports = parsed.reports.filter((report) =>
+      keptIds.has(report.donation_request_id),
+    );
     parsed.donations = parsed.donations.map((donation) => {
       const loadSize =
         donation.load_size &&
@@ -352,9 +187,7 @@ function loadPersistedStore(): Store | null {
       donation.estimated_pounds = estimate.estimated_pounds;
       donation.estimated_value = estimate.estimated_value;
     });
-    if (normalized.migrated) {
-      writeFileSync(STORE_FILE(), JSON.stringify(parsed, null, 2), "utf8");
-    }
+    writeFileSync(STORE_FILE(), JSON.stringify(parsed, null, 2), "utf8");
     return parsed;
   } catch {
     return null;
