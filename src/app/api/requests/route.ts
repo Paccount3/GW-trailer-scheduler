@@ -10,6 +10,7 @@ import {
 import {
   getServiceSupabase,
   isSupabaseConfigured,
+  requireSupabaseWhenExpected,
 } from "@/lib/supabase/server";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -63,6 +64,7 @@ function safeExtension(file: File) {
 }
 
 async function uploadPrivateImage(file: File, folder: string) {
+  requireSupabaseWhenExpected();
   const path = `${folder}/${crypto.randomUUID()}.${safeExtension(file)}`;
   const bytes = await file.arrayBuffer();
 
@@ -82,6 +84,7 @@ async function uploadPrivateImage(file: File, folder: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    requireSupabaseWhenExpected();
     const form = await request.formData();
 
     // Honeypot field: real users never see or fill this.

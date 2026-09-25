@@ -1,5 +1,9 @@
 import { demoDb } from "@/lib/demo-store";
-import { isSupabaseConfigured, getServiceSupabase } from "@/lib/supabase/server";
+import {
+  getServiceSupabase,
+  isSupabaseConfigured,
+  requireSupabaseWhenExpected,
+} from "@/lib/supabase/server";
 import {
   ACTIVE_TRAILER_STATUSES,
   DonationRequest,
@@ -11,13 +15,18 @@ import {
   calcLoadEstimate,
 } from "@/lib/types";
 
+function useSupabaseOrDemo() {
+  requireSupabaseWhenExpected();
+  return isSupabaseConfigured();
+}
+
 async function assertTrailerFree(
   trailerId: string | null | undefined,
   status: DonationStatus,
   excludeId?: string,
 ) {
   if (!trailerId || !ACTIVE_TRAILER_STATUSES.includes(status)) return;
-  if (!isSupabaseConfigured()) return;
+  if (!useSupabaseOrDemo()) return;
 
   const supabase = getServiceSupabase();
   let query = supabase
@@ -39,7 +48,7 @@ async function assertTrailerFree(
 
 export const data = {
   async listTrailers(): Promise<Trailer[]> {
-    if (!isSupabaseConfigured()) return demoDb.listTrailers();
+    if (!useSupabaseOrDemo()) return demoDb.listTrailers();
     const { data: rows, error } = await getServiceSupabase()
       .from("trailers")
       .select("*")
@@ -53,7 +62,7 @@ export const data = {
     notes?: string | null;
     is_active?: boolean;
   }) {
-    if (!isSupabaseConfigured()) return demoDb.createTrailer(input);
+    if (!useSupabaseOrDemo()) return demoDb.createTrailer(input);
     const { data: row, error } = await getServiceSupabase()
       .from("trailers")
       .insert({
@@ -71,7 +80,7 @@ export const data = {
     id: string,
     patch: Partial<Pick<Trailer, "name" | "notes" | "is_active">>,
   ) {
-    if (!isSupabaseConfigured()) return demoDb.updateTrailer(id, patch);
+    if (!useSupabaseOrDemo()) return demoDb.updateTrailer(id, patch);
     const { data: row, error } = await getServiceSupabase()
       .from("trailers")
       .update(patch)
@@ -83,7 +92,7 @@ export const data = {
   },
 
   async deleteTrailer(id: string) {
-    if (!isSupabaseConfigured()) return demoDb.deleteTrailer(id);
+    if (!useSupabaseOrDemo()) return demoDb.deleteTrailer(id);
     const { error } = await getServiceSupabase()
       .from("trailers")
       .delete()
@@ -92,7 +101,7 @@ export const data = {
   },
 
   async listDonations(): Promise<DonationRequest[]> {
-    if (!isSupabaseConfigured()) return demoDb.listDonations();
+    if (!useSupabaseOrDemo()) return demoDb.listDonations();
     const { data: rows, error } = await getServiceSupabase()
       .from("donation_requests")
       .select("*, trailers(*)")
@@ -102,7 +111,7 @@ export const data = {
   },
 
   async getDonation(id: string) {
-    if (!isSupabaseConfigured()) return demoDb.getDonation(id);
+    if (!useSupabaseOrDemo()) return demoDb.getDonation(id);
     const { data: row, error } = await getServiceSupabase()
       .from("donation_requests")
       .select("*, trailers(*)")
@@ -116,7 +125,7 @@ export const data = {
     input: Partial<DonationRequest> &
       Pick<DonationRequest, "first_name" | "last_name">,
   ) {
-    if (!isSupabaseConfigured()) return demoDb.createDonation(input);
+    if (!useSupabaseOrDemo()) return demoDb.createDonation(input);
     await assertTrailerFree(input.trailer_id, input.status ?? "requested");
     const { data: row, error } = await getServiceSupabase()
       .from("donation_requests")
@@ -152,7 +161,7 @@ export const data = {
       >
     >,
   ) {
-    if (!isSupabaseConfigured()) return demoDb.updateDonation(id, patch);
+    if (!useSupabaseOrDemo()) return demoDb.updateDonation(id, patch);
 
     const current = await this.getDonation(id);
     if (!current) throw new Error("Donation request not found");
@@ -178,7 +187,7 @@ export const data = {
   },
 
   async deleteDonation(id: string) {
-    if (!isSupabaseConfigured()) return demoDb.deleteDonation(id);
+    if (!useSupabaseOrDemo()) return demoDb.deleteDonation(id);
 
     const supabase = getServiceSupabase();
     const current = await this.getDonation(id);
@@ -215,7 +224,7 @@ export const data = {
   },
 
   async listReports(): Promise<TrailerReport[]> {
-    if (!isSupabaseConfigured()) return demoDb.listReports();
+    if (!useSupabaseOrDemo()) return demoDb.listReports();
     const { data: rows, error } = await getServiceSupabase()
       .from("trailer_reports")
       .select(
@@ -232,7 +241,7 @@ export const data = {
       "id" | "created_at" | "updated_at" | "donation_requests"
     >,
   ) {
-    if (!isSupabaseConfigured()) return demoDb.createReport(input);
+    if (!useSupabaseOrDemo()) return demoDb.createReport(input);
     const { data: row, error } = await getServiceSupabase()
       .from("trailer_reports")
       .upsert(input, {
@@ -247,7 +256,7 @@ export const data = {
   },
 
   async listLoadSettings(): Promise<LoadValueSetting[]> {
-    if (!isSupabaseConfigured()) return demoDb.listLoadSettings();
+    if (!useSupabaseOrDemo()) return demoDb.listLoadSettings();
     const { data: rows, error } = await getServiceSupabase()
       .from("load_value_settings")
       .select("*")
@@ -263,7 +272,7 @@ export const data = {
       Pick<LoadValueSetting, "estimated_pounds" | "value_per_pound" | "label">
     >,
   ) {
-    if (!isSupabaseConfigured()) return demoDb.updateLoadSetting(loadSize, patch);
+    if (!useSupabaseOrDemo()) return demoDb.updateLoadSetting(loadSize, patch);
     const { data: row, error } = await getServiceSupabase()
       .from("load_value_settings")
       .update(patch)
@@ -275,7 +284,7 @@ export const data = {
   },
 
   async availableTrailers(excludeDonationId?: string) {
-    if (!isSupabaseConfigured()) return demoDb.availableTrailers(excludeDonationId);
+    if (!useSupabaseOrDemo()) return demoDb.availableTrailers(excludeDonationId);
 
     const trailers = await this.listTrailers();
     const donations = await this.listDonations();

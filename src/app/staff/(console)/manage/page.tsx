@@ -50,7 +50,7 @@ export default async function ManageDonationsPage() {
           </p>
         </div>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Data source: {isSupabaseConfigured() ? "Supabase" : "Local demo store"}
+          Data source: {isSupabaseConfigured() ? "Supabase" : "Not connected — check /api/health/supabase"}
         </p>
       </div>
 
