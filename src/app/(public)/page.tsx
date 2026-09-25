@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
 import { TrailerRequestForm } from "@/components/TrailerRequestForm";
 import { SERVICE_TOWNS } from "@/lib/hold-harmless";
-import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Request a Trailer",
 };
 
-export const dynamic = "force-dynamic";
-
 export default function RequestTrailerPage() {
-  const browserDemo = !isSupabaseConfigured();
   return (
     <div>
       <section className="hero-band">
@@ -47,7 +43,7 @@ export default function RequestTrailerPage() {
         </div>
 
         <div className="mx-auto max-w-5xl">
-          <TrailerRequestForm browserDemo={browserDemo} />
+          <TrailerRequestForm />
         </div>
       </section>
     </div>

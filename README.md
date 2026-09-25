@@ -42,9 +42,18 @@ database and storage instead.
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+SUPABASE_SECRET_KEY=...
 ```
+
+`SUPABASE_SECRET_KEY` is required for this app (starts with `sb_secret_…`).
+Legacy `SUPABASE_SERVICE_ROLE_KEY` (JWT starting with `eyJ…`) still works.
+Staff APIs and the public request form use this secret on the server (RLS
+bypass). Never put it in client code or commit it to git.
+
+On Vercel:
+- `NEXT_PUBLIC_*` vars can be type **Config** (they must stay public)
+- `SUPABASE_SECRET_KEY` must be type **Secret** and must **not** use `NEXT_PUBLIC_`
 
 If an earlier schema is already installed, also run migrations in `supabase/`,
 including `migration_staff_countersign.sql`.

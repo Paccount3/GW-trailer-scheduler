@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { data } from "@/lib/data";
 import { ReportsCharts } from "@/components/ReportsCharts";
-import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Reports",
@@ -10,7 +9,6 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const browserDemo = !isSupabaseConfigured();
   const [donations, reports, loadSettings] = await Promise.all([
     data.listDonations(),
     data.listReports(),
@@ -28,10 +26,9 @@ export default async function ReportsPage() {
       </div>
 
       <ReportsCharts
-        donations={browserDemo ? [] : donations}
-        reports={browserDemo ? [] : reports}
+        donations={donations}
+        reports={reports}
         loadSettings={loadSettings}
-        browserDemo={browserDemo}
       />
     </div>
   );

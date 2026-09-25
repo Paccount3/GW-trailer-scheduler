@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   DonationsWeekCalendar,
@@ -8,11 +8,6 @@ import {
   weekStartFromDateString,
 } from "@/components/DonationsWeekCalendar";
 import { StatusBadge } from "@/components/StatusBadge";
-import {
-  deleteBrowserDonation,
-  ensureBrowserDemo,
-  updateBrowserDonation,
-} from "@/lib/browser-demo-store";
 import {
   DonationRequest,
   DONATION_STATUSES,
@@ -38,23 +33,15 @@ type Props = {
       estimatedLoadOther: string | null;
     }
   >;
-  browserDemo?: boolean;
 };
 
 export function ManageDonationsClient({
   initialDonations,
-  trailers: initialTrailers,
-  loadSettings: initialLoadSettings,
-  pickupReports: initialPickupReports,
-  browserDemo = false,
+  trailers,
+  loadSettings,
+  pickupReports,
 }: Props) {
-  const [hydrated, setHydrated] = useState(!browserDemo);
-  const [donations, setDonations] = useState(
-    browserDemo ? [] : initialDonations,
-  );
-  const [trailers, setTrailers] = useState(initialTrailers);
-  const [loadSettings, setLoadSettings] = useState(initialLoadSettings);
-  const [pickupReports, setPickupReports] = useState(initialPickupReports);
+  const [donations, setDonations] = useState(initialDonations);
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
   const [weekStart, setWeekStart] = useState(() =>
     weekStartFromDateString(
@@ -72,55 +59,13 @@ export function ManageDonationsClient({
     "newest_request" | "pickup_asc" | "pickup_desc"
   >("newest_request");
   const [selectedId, setSelectedId] = useState<string | null>(
-    browserDemo ? null : (initialDonations[0]?.id ?? null),
+    initialDonations[0]?.id ?? null,
   );
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    if (!browserDemo) return;
-    const state = ensureBrowserDemo({
-      trailers: initialTrailers,
-      loadSettings: initialLoadSettings,
-    });
-    setDonations(state.donations);
-    setTrailers(state.trailers.length ? state.trailers : initialTrailers);
-    setLoadSettings(
-      state.loadSettings.length ? state.loadSettings : initialLoadSettings,
-    );
-    setPickupReports(
-      Object.fromEntries(
-        state.reports
-          .filter((report) => report.report_type === "pickup")
-          .map((report) => {
-            const extras = report.extras as {
-              estimated_load?: string;
-              estimated_load_other?: string;
-            } | null;
-            return [
-              report.donation_request_id,
-              {
-                id: report.id,
-                completed: report.is_completed,
-                estimatedLoad: extras?.estimated_load || null,
-                estimatedLoadOther: extras?.estimated_load_other || null,
-              },
-            ];
-          }),
-      ),
-    );
-    setSelectedId(state.donations[0]?.id ?? null);
-    setWeekStart(
-      weekStartFromDateString(
-        state.donations.find((donation) => donation.scheduled_date)
-          ?.scheduled_date,
-      ) || currentWeekStart(),
-    );
-    setHydrated(true);
-  }, [browserDemo, initialTrailers, initialLoadSettings]);
 
   const selected = donations.find((d) => d.id === selectedId) || null;
 
@@ -248,42 +193,24 @@ export function ManageDonationsClient({
     setError("");
     setMessage("");
 
-    try {
-      if (browserDemo) {
-        const updated = updateBrowserDonation(
-          selected.id,
-          patch as Partial<DonationRequest>,
-        );
-        setDonations((prev) =>
-          prev.map((d) => (d.id === updated.id ? updated : d)),
-        );
-        setMessage("Saved");
-        setSaving(false);
-        return;
-      }
+    const res = await fetch(`/api/donations/${selected.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
 
-      const res = await fetch(`/api/donations/${selected.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
+    const body = await res.json().catch(() => ({}));
+    setSaving(false);
 
-      const body = await res.json().catch(() => ({}));
-      setSaving(false);
-
-      if (!res.ok) {
-        setError(body.error || "Failed to save");
-        return;
-      }
-
-      setDonations((prev) =>
-        prev.map((d) => (d.id === body.id ? (body as DonationRequest) : d)),
-      );
-      setMessage("Saved");
-    } catch (err) {
-      setSaving(false);
-      setError(err instanceof Error ? err.message : "Failed to save");
+    if (!res.ok) {
+      setError(body.error || "Failed to save");
+      return;
     }
+
+    setDonations((prev) =>
+      prev.map((d) => (d.id === body.id ? (body as DonationRequest) : d)),
+    );
+    setMessage("Saved");
   }
 
   async function deleteSelected() {
@@ -291,51 +218,26 @@ export function ManageDonationsClient({
     setDeleting(true);
     setError("");
 
-    try {
-      if (browserDemo) {
-        deleteBrowserDonation(selected.id);
-        const remaining = donations.filter(
-          (donation) => donation.id !== selected.id,
-        );
-        setDonations(remaining);
-        setSelectedId(remaining[0]?.id ?? null);
-        setDeleting(false);
-        setConfirmDelete(false);
-        setMessage("");
-        return;
-      }
+    const res = await fetch(`/api/donations/${selected.id}`, {
+      method: "DELETE",
+    });
+    const body = await res.json().catch(() => ({}));
 
-      const res = await fetch(`/api/donations/${selected.id}`, {
-        method: "DELETE",
-      });
-      const body = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setDeleting(false);
-        setConfirmDelete(false);
-        setError(body.error || "Failed to delete request");
-        return;
-      }
-
-      const remaining = donations.filter(
-        (donation) => donation.id !== selected.id,
-      );
-      setDonations(remaining);
-      setSelectedId(remaining[0]?.id ?? null);
+    if (!res.ok) {
       setDeleting(false);
       setConfirmDelete(false);
-      setMessage("");
-    } catch (err) {
-      setDeleting(false);
-      setConfirmDelete(false);
-      setError(err instanceof Error ? err.message : "Failed to delete request");
+      setError(body.error || "Failed to delete request");
+      return;
     }
-  }
 
-  if (browserDemo && !hydrated) {
-    return (
-      <div className="panel p-8 text-muted">Loading browser demo data…</div>
+    const remaining = donations.filter(
+      (donation) => donation.id !== selected.id,
     );
+    setDonations(remaining);
+    setSelectedId(remaining[0]?.id ?? null);
+    setDeleting(false);
+    setConfirmDelete(false);
+    setMessage("");
   }
 
   return (

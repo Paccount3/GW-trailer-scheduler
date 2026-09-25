@@ -6,10 +6,19 @@ function env(name: string) {
   return process.env[name]?.trim() || "";
 }
 
+/** Server secret: new `sb_secret_…` or legacy JWT `service_role`. */
+export function getSupabaseSecretKey() {
+  return env("SUPABASE_SECRET_KEY") || env("SUPABASE_SERVICE_ROLE_KEY");
+}
+
+function looksLikeSecretKey(key: string) {
+  return key.startsWith("sb_secret_") || key.startsWith("eyJ");
+}
+
 export function isSupabaseConfigured() {
-  return Boolean(
-    env("NEXT_PUBLIC_SUPABASE_URL") && env("SUPABASE_SERVICE_ROLE_KEY"),
-  );
+  const url = env("NEXT_PUBLIC_SUPABASE_URL");
+  const key = getSupabaseSecretKey();
+  return Boolean(url && key && looksLikeSecretKey(key));
 }
 
 /** True on Vercel / other hosts where the local demo filesystem is not writable. */
@@ -20,19 +29,25 @@ export function isServerlessHost() {
 export function requireSupabaseInProduction() {
   if (!isSupabaseConfigured() && isServerlessHost()) {
     throw new Error(
-      "Supabase is not configured on this deployment. In Vercel → Project Settings → Environment Variables, add NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, then redeploy.",
+      "Supabase is not configured. In Vercel → Environment Variables, set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, and SUPABASE_SECRET_KEY (sb_secret_… from Project Settings → API Keys). Do not use the project ref as the secret.",
     );
   }
 }
 
-/** Server-only client that bypasses RLS (webhooks + staff mutations). */
+/** Server-only client that bypasses RLS (staff mutations + private uploads). */
 export function getServiceSupabase() {
-  const url = env("NEXT_PUBLIC_SUPABASE_URL");
-  const key = env("SUPABASE_SERVICE_ROLE_KEY");
+  const url = env("NEXT_PUBLIC_SUPABASE_URL") || env("SUPABASE_URL");
+  const key = getSupabaseSecretKey();
 
   if (!url || !key) {
     throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SECRET_KEY / SUPABASE_SERVICE_ROLE_KEY",
+    );
+  }
+
+  if (!looksLikeSecretKey(key)) {
+    throw new Error(
+      "SUPABASE_SECRET_KEY looks invalid. Use the secret key from Supabase → Project Settings → API Keys (starts with sb_secret_… or the legacy JWT starting with eyJ…). Do not paste the project ref from the URL.",
     );
   }
 

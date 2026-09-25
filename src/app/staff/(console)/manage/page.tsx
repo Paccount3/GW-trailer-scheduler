@@ -50,18 +50,16 @@ export default async function ManageDonationsPage() {
           </p>
         </div>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Data source:{" "}
-          {isSupabaseConfigured() ? "Supabase" : "Browser localStorage (demo)"}
+          Data source: {isSupabaseConfigured() ? "Supabase" : "Local demo store"}
         </p>
       </div>
 
       <Suspense fallback={<div className="panel p-8 text-muted">Loading…</div>}>
         <ManageDonationsClient
-          initialDonations={isSupabaseConfigured() ? donations : []}
+          initialDonations={donations}
           trailers={trailers}
-          pickupReports={isSupabaseConfigured() ? pickupReports : {}}
+          pickupReports={pickupReports}
           loadSettings={loadSettings}
-          browserDemo={!isSupabaseConfigured()}
         />
       </Suspense>
     </div>

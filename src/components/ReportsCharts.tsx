@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -13,7 +13,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ensureBrowserDemo } from "@/lib/browser-demo-store";
 import {
   DonationRequest,
   DROPOFF_STORES,
@@ -27,7 +26,6 @@ type Props = {
   donations: DonationRequest[];
   reports: TrailerReport[];
   loadSettings: LoadValueSetting[];
-  browserDemo?: boolean;
 };
 
 type DateRange = "all" | "last_30" | "last_90" | "year" | "custom";
@@ -83,34 +81,10 @@ function estimatedTotals(
   );
 }
 
-export function ReportsCharts({
-  donations: initialDonations,
-  reports: initialReports,
-  loadSettings: initialLoadSettings,
-  browserDemo = false,
-}: Props) {
-  const [hydrated, setHydrated] = useState(!browserDemo);
-  const [donations, setDonations] = useState(
-    browserDemo ? [] : initialDonations,
-  );
-  const [reports, setReports] = useState(browserDemo ? [] : initialReports);
-  const [loadSettings, setLoadSettings] = useState(initialLoadSettings);
+export function ReportsCharts({ donations, reports, loadSettings }: Props) {
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-
-  useEffect(() => {
-    if (!browserDemo) return;
-    const state = ensureBrowserDemo({
-      loadSettings: initialLoadSettings,
-    });
-    setDonations(state.donations);
-    setReports(state.reports);
-    setLoadSettings(
-      state.loadSettings.length ? state.loadSettings : initialLoadSettings,
-    );
-    setHydrated(true);
-  }, [browserDemo, initialLoadSettings]);
 
   const filtered = useMemo(() => {
     let from = "";
@@ -309,12 +283,6 @@ export function ReportsCharts({
           : dateRange === "year"
             ? "Year to date"
             : "Custom range";
-
-  if (browserDemo && !hydrated) {
-    return (
-      <div className="panel p-8 text-muted">Loading browser demo data…</div>
-    );
-  }
 
   return (
     <div className="space-y-5">
