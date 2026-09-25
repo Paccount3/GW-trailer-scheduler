@@ -390,95 +390,6 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
         </div>
       ) : (
         <>
-          <section className="panel overflow-hidden">
-            <div className="border-b border-line px-4 py-4 sm:px-5 sm:py-5">
-              <h2 className="text-xl font-bold text-ink">
-                Drop-off store destinations
-              </h2>
-              <p className="mt-1 text-sm text-muted">
-                Where trailers are staged for drop-off —{" "}
-                {metrics.storesWithRequests} store
-                {metrics.storesWithRequests === 1 ? "" : "s"} with assigned
-                requests in this period
-                {metrics.missingDropoffStore > 0
-                  ? ` · ${metrics.missingDropoffStore} unassigned`
-                  : ""}
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[40rem] text-left text-sm">
-                <thead className="bg-surface text-xs font-bold uppercase tracking-wide text-muted">
-                  <tr>
-                    <th className="px-4 py-3 sm:px-5">Drop-off store</th>
-                    <th className="px-3 py-3 text-right">Requests</th>
-                    <th className="px-3 py-3 text-right">Share</th>
-                    <th className="px-3 py-3 text-right">Active</th>
-                    <th className="px-3 py-3 text-right">Scheduled</th>
-                    <th className="px-4 py-3 text-right sm:px-5">Completed</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {metrics.dropoffStores.map((store) => {
-                    const isUnassigned = store.name === "Unassigned";
-                    const barWidth = filtered.length
-                      ? Math.max(
-                          store.requests > 0
-                            ? (store.requests / filtered.length) * 100
-                            : 0,
-                          0,
-                        )
-                      : 0;
-                    return (
-                      <tr
-                        key={store.name}
-                        className={
-                          store.requests === 0 && !isUnassigned
-                            ? "bg-white text-muted"
-                            : "bg-white"
-                        }
-                      >
-                        <td className="px-4 py-3 sm:px-5">
-                          <div className="min-w-0">
-                            <p
-                              className={`font-semibold ${
-                                isUnassigned ? "text-amber-800" : "text-ink"
-                              }`}
-                            >
-                              {store.name}
-                            </p>
-                            <div className="mt-1.5 h-1.5 max-w-xs overflow-hidden rounded-full bg-gw-blue-soft">
-                              <div
-                                className={`h-full rounded-full ${
-                                  isUnassigned ? "bg-amber-500" : "bg-gw-blue"
-                                }`}
-                                style={{ width: `${barWidth}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-right font-bold text-ink">
-                          {formatNumber(store.requests)}
-                        </td>
-                        <td className="px-3 py-3 text-right text-muted">
-                          {store.share}%
-                        </td>
-                        <td className="px-3 py-3 text-right font-semibold text-ink">
-                          {formatNumber(store.active)}
-                        </td>
-                        <td className="px-3 py-3 text-right text-ink">
-                          {formatNumber(store.scheduled)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-ink sm:px-5">
-                          {formatNumber(store.completed)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
           <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
             <div className="panel p-5">
               <div className="mb-4">
@@ -638,6 +549,95 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
                   detail={`${metrics.pickupReportRate}% of pickup reports`}
                 />
               </div>
+            </div>
+          </section>
+
+          <section className="panel overflow-hidden">
+            <div className="border-b border-line px-4 py-4 sm:px-5 sm:py-5">
+              <h2 className="text-xl font-bold text-ink">
+                Drop-off store destinations
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Where trailers are staged for drop-off —{" "}
+                {metrics.storesWithRequests} store
+                {metrics.storesWithRequests === 1 ? "" : "s"} with assigned
+                requests in this period
+                {metrics.missingDropoffStore > 0
+                  ? ` · ${metrics.missingDropoffStore} unassigned`
+                  : ""}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[40rem] text-left text-sm">
+                <thead className="bg-surface text-xs font-bold uppercase tracking-wide text-muted">
+                  <tr>
+                    <th className="px-4 py-3 sm:px-5">Drop-off store</th>
+                    <th className="px-3 py-3 text-right">Requests</th>
+                    <th className="px-3 py-3 text-right">Share</th>
+                    <th className="px-3 py-3 text-right">Active</th>
+                    <th className="px-3 py-3 text-right">Scheduled</th>
+                    <th className="px-4 py-3 text-right sm:px-5">Completed</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {metrics.dropoffStores.map((store) => {
+                    const isUnassigned = store.name === "Unassigned";
+                    const barWidth = filtered.length
+                      ? Math.max(
+                          store.requests > 0
+                            ? (store.requests / filtered.length) * 100
+                            : 0,
+                          0,
+                        )
+                      : 0;
+                    return (
+                      <tr
+                        key={store.name}
+                        className={
+                          store.requests === 0 && !isUnassigned
+                            ? "bg-white text-muted"
+                            : "bg-white"
+                        }
+                      >
+                        <td className="px-4 py-3 sm:px-5">
+                          <div className="min-w-0">
+                            <p
+                              className={`font-semibold ${
+                                isUnassigned ? "text-amber-800" : "text-ink"
+                              }`}
+                            >
+                              {store.name}
+                            </p>
+                            <div className="mt-1.5 h-1.5 max-w-xs overflow-hidden rounded-full bg-gw-blue-soft">
+                              <div
+                                className={`h-full rounded-full ${
+                                  isUnassigned ? "bg-amber-500" : "bg-gw-blue"
+                                }`}
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-ink">
+                          {formatNumber(store.requests)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-muted">
+                          {store.share}%
+                        </td>
+                        <td className="px-3 py-3 text-right font-semibold text-ink">
+                          {formatNumber(store.active)}
+                        </td>
+                        <td className="px-3 py-3 text-right text-ink">
+                          {formatNumber(store.scheduled)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-ink sm:px-5">
+                          {formatNumber(store.completed)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </section>
         </>

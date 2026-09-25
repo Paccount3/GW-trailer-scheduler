@@ -50,8 +50,19 @@ export function TrailerRequestForm() {
       const body = await response.json().catch(() => ({}));
       setSubmitting(false);
 
-      if (!response.ok) {
-        setError(body.error || "Unable to submit your request.");
+      const savedToSupabase =
+        response.ok &&
+        response.status === 201 &&
+        body?.ok === true &&
+        typeof body.reference_code === "string" &&
+        body.reference_code.length > 0 &&
+        body.storage === "supabase";
+
+      if (!savedToSupabase) {
+        setError(
+          body.error ||
+            "Your request was not saved to the database. Please try again or contact Goodwill staff.",
+        );
         if (body.field) {
           const field = formElement.elements.namedItem(String(body.field));
           if (field instanceof HTMLElement) {

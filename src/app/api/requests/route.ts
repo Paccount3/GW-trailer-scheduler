@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { data } from "@/lib/data";
-import { saveDemoUpload } from "@/lib/demo-files";
 import {
   HOLD_HARMLESS_TEXT,
   HOLD_HARMLESS_VERSION,
@@ -11,6 +10,7 @@ import {
   getServiceSupabase,
   isSupabaseConfigured,
   requireSupabaseWhenExpected,
+  supabaseMisconfigError,
 } from "@/lib/supabase/server";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
@@ -64,13 +64,12 @@ function safeExtension(file: File) {
 }
 
 async function uploadPrivateImage(file: File, folder: string) {
-  requireSupabaseWhenExpected();
+  if (!isSupabaseConfigured()) {
+    throw new Error(supabaseMisconfigError());
+  }
+
   const path = `${folder}/${crypto.randomUUID()}.${safeExtension(file)}`;
   const bytes = await file.arrayBuffer();
-
-  if (!isSupabaseConfigured()) {
-    return saveDemoUpload(path, bytes, file.type);
-  }
 
   const { error } = await getServiceSupabase().storage
     .from("request-documents")
@@ -85,6 +84,13 @@ async function uploadPrivateImage(file: File, folder: string) {
 export async function POST(request: NextRequest) {
   try {
     requireSupabaseWhenExpected();
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json(
+        { error: supabaseMisconfigError(), storage: "unconfigured" },
+        { status: 503 },
+      );
+    }
+
     const form = await request.formData();
 
     // Honeypot field: real users never see or fill this.
@@ -236,12 +242,15 @@ export async function POST(request: NextRequest) {
         ok: true,
         id: donation.id,
         reference_code: donation.reference_code,
+        storage: "supabase",
       },
       { status: 201 },
     );
   } catch (error) {
     return NextResponse.json(
       {
+        ok: false,
+        storage: "error",
         error:
           error instanceof Error
             ? error.message

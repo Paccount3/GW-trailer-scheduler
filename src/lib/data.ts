@@ -6,6 +6,7 @@ import {
 } from "@/lib/supabase/server";
 import {
   ACTIVE_TRAILER_STATUSES,
+  DEFAULT_LOAD_VALUE_SETTINGS,
   DonationRequest,
   DonationStatus,
   LoadSize,
@@ -18,6 +19,53 @@ import {
 function useSupabaseOrDemo() {
   requireSupabaseWhenExpected();
   return isSupabaseConfigured();
+}
+
+/** Seed inventory rows the Settings UI expects if the project is empty. */
+async function ensureSupabaseDefaults() {
+  const supabase = getServiceSupabase();
+
+  const { count: trailerCount, error: trailerCountError } = await supabase
+    .from("trailers")
+    .select("id", { count: "exact", head: true });
+  if (trailerCountError) throw trailerCountError;
+
+  if (!trailerCount) {
+    const { error } = await supabase.from("trailers").insert([
+      {
+        name: "Trailer A",
+        notes: "Main community trailer",
+        is_active: true,
+      },
+      {
+        name: "Trailer B",
+        notes: "Backup / overflow",
+        is_active: true,
+      },
+      {
+        name: "Trailer C",
+        notes: null,
+        is_active: true,
+      },
+    ]);
+    if (error) throw error;
+  }
+
+  const { data: existingSettings, error: settingsError } = await supabase
+    .from("load_value_settings")
+    .select("load_size");
+  if (settingsError) throw settingsError;
+
+  const existing = new Set(
+    (existingSettings ?? []).map((row) => String(row.load_size)),
+  );
+  const missing = DEFAULT_LOAD_VALUE_SETTINGS.filter(
+    (setting) => !existing.has(setting.load_size),
+  );
+  if (missing.length) {
+    const { error } = await supabase.from("load_value_settings").insert(missing);
+    if (error) throw error;
+  }
 }
 
 async function assertTrailerFree(
@@ -49,6 +97,7 @@ async function assertTrailerFree(
 export const data = {
   async listTrailers(): Promise<Trailer[]> {
     if (!useSupabaseOrDemo()) return demoDb.listTrailers();
+    await ensureSupabaseDefaults();
     const { data: rows, error } = await getServiceSupabase()
       .from("trailers")
       .select("*")
@@ -257,6 +306,7 @@ export const data = {
 
   async listLoadSettings(): Promise<LoadValueSetting[]> {
     if (!useSupabaseOrDemo()) return demoDb.listLoadSettings();
+    await ensureSupabaseDefaults();
     const { data: rows, error } = await getServiceSupabase()
       .from("load_value_settings")
       .select("*")

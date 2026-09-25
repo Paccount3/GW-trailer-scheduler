@@ -125,6 +125,12 @@ insert into public.load_value_settings (load_size, label, estimated_pounds, valu
   ('three_quarter', '75% Full', 3000, 0.26),
   ('full', '100% Full', 4000, 0.26);
 
+-- Default trailer inventory (staff can rename/add in Settings)
+insert into public.trailers (name, notes, is_active) values
+  ('Trailer A', 'Main community trailer', true),
+  ('Trailer B', 'Backup / overflow', true),
+  ('Trailer C', null, true);
+
 -- updated_at helper
 create or replace function public.set_updated_at()
 returns trigger
