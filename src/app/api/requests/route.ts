@@ -142,8 +142,11 @@ async function validateImage(value: FormDataEntryValue | null, label: string) {
   if (!(value instanceof File) || value.size === 0) {
     throw new Error(`${label} is required.`);
   }
+  const sizeLabel = `${(value.size / (1024 * 1024)).toFixed(1)} MB`;
   if (value.size > MAX_FILE_SIZE) {
-    throw new Error(`${label} must be smaller than 8 MB.`);
+    throw new Error(
+      `${label} "${value.name || "photo"}" is ${sizeLabel}, which is over the 8 MB limit.`,
+    );
   }
 
   const declared = TYPE_ALIASES[value.type.toLowerCase()] || value.type.toLowerCase();
@@ -153,12 +156,12 @@ async function validateImage(value: FormDataEntryValue | null, label: string) {
 
   if (sniffed === "image/heic" || declared === "image/heic" || declared === "image/heif") {
     throw new Error(
-      `${label} is a HEIC photo. Choose a JPG or PNG from your gallery and try again.`,
+      `${label} "${value.name || "photo"}" is a HEIC photo (${sizeLabel}, reported as ${value.type || "unknown"}). Save it as a JPG or PNG and try again.`,
     );
   }
   if (!type || !IMAGE_TYPES.has(type)) {
     throw new Error(
-      `${label} must be a JPG, PNG, or WebP image (received ${value.type || "an unknown file type"}).`,
+      `${label} "${value.name || "photo"}" is not a usable JPG, PNG, or WebP. Size ${sizeLabel}, reported type ${value.type || "unknown"}, detected contents ${sniffed || "unrecognized"}.`,
     );
   }
 
@@ -189,7 +192,11 @@ async function uploadPrivateImage(file: File, folder: string) {
       contentType: file.type,
       upsert: false,
     });
-  if (error) throw error;
+  if (error) {
+    throw new Error(
+      `Photo storage upload failed for a ${file.type || "unknown"} file (${(file.size / (1024 * 1024)).toFixed(1)} MB): ${error.message}`,
+    );
+  }
   return path;
 }
 
@@ -321,9 +328,10 @@ export async function POST(request: NextRequest) {
       form.get("license_photo"),
       "Driver’s license photo",
     );
-    if (parkingPhoto.size + licensePhoto.size > MAX_COMBINED_BYTES) {
+    const combinedBytes = parkingPhoto.size + licensePhoto.size;
+    if (combinedBytes > MAX_COMBINED_BYTES) {
       throw new Error(
-        "The photos are too large to upload together. Choose smaller images and try again.",
+        `The photos are too large to upload together (${(parkingPhoto.size / (1024 * 1024)).toFixed(1)} MB + ${(licensePhoto.size / (1024 * 1024)).toFixed(1)} MB, limit 4.0 MB). Choose smaller images and try again.`,
       );
     }
     logRequest(requestId, "photos-accepted", {

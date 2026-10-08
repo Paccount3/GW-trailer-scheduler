@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { CheckCircle2, FileCheck2, MapPin, ShieldCheck } from "lucide-react";
+import { CheckCircle2, FileCheck2, Loader2, MapPin, ShieldCheck } from "lucide-react";
 import {
   HOLD_HARMLESS_TEXT,
   NON_DONATABLE_ITEMS,
@@ -32,6 +32,7 @@ function AgreementCheckbox({
 export function TrailerRequestForm() {
   const [addressType, setAddressType] = useState("residential");
   const [submitting, setSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState("");
   const [error, setError] = useState("");
   const [referenceCode, setReferenceCode] = useState<string | null>(null);
 
@@ -41,6 +42,7 @@ export function TrailerRequestForm() {
     if (!formElement.reportValidity()) return;
 
     setSubmitting(true);
+    setSubmitStatus("Preparing your photos…");
     setError("");
 
     try {
@@ -48,10 +50,16 @@ export function TrailerRequestForm() {
       for (const fieldName of ["parking_photo", "license_photo"] as const) {
         const photo = formData.get(fieldName);
         if (photo instanceof File && photo.size > 0) {
+          const label =
+            fieldName === "parking_photo"
+              ? "parking location photo"
+              : "driver’s license photo";
+          setSubmitStatus(`Preparing the ${label}…`);
           formData.set(fieldName, await prepareUploadImage(photo));
         }
       }
 
+      setSubmitStatus("Sending your request…");
       const response = await fetch("/api/requests", {
         method: "POST",
         body: formData,
@@ -71,6 +79,7 @@ export function TrailerRequestForm() {
         body = {};
       }
       setSubmitting(false);
+      setSubmitStatus("");
 
       const referenceCodeValue = body.reference_code;
       const savedToSupabase =
@@ -108,6 +117,7 @@ export function TrailerRequestForm() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setSubmitting(false);
+      setSubmitStatus("");
       setError(
         err instanceof Error ? err.message : "Unable to submit your request.",
       );
@@ -118,6 +128,26 @@ export function TrailerRequestForm() {
 
   return (
     <>
+      {submitting && (
+        <div
+          className="fixed inset-0 z-[90] grid place-items-center bg-ink/55 p-4"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white px-6 py-8 text-center shadow-2xl">
+            <Loader2
+              className="mx-auto size-14 animate-spin text-gw-blue"
+              aria-hidden="true"
+            />
+            <p className="mt-4 text-xl font-bold text-ink">{submitStatus}</p>
+            <p className="mt-2 text-sm text-muted">
+              Please keep this page open. Photo preparation can take a few
+              seconds on a phone.
+            </p>
+          </div>
+        </div>
+      )}
+
       {referenceCode && (
         <div
           className="fixed inset-0 z-[100] grid place-items-center bg-ink/55 p-4"
@@ -551,7 +581,7 @@ export function TrailerRequestForm() {
             className="btn btn-primary min-h-14 shrink-0 px-8 text-base"
             disabled={submitting}
           >
-            {submitting ? "Submitting…" : "Submit Trailer Request"}
+            {submitting ? submitStatus || "Submitting…" : "Submit Trailer Request"}
           </button>
         </div>
       </form>
