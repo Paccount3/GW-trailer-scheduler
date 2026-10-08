@@ -7,6 +7,7 @@ import {
   NON_DONATABLE_ITEMS,
   SERVICE_TOWNS,
 } from "@/lib/hold-harmless";
+import { prepareUploadImage } from "@/lib/prepare-upload-image";
 
 function AgreementCheckbox({
   name,
@@ -43,25 +44,53 @@ export function TrailerRequestForm() {
     setError("");
 
     try {
+      const formData = new FormData(formElement);
+      for (const fieldName of ["parking_photo", "license_photo"] as const) {
+        const photo = formData.get(fieldName);
+        if (photo instanceof File && photo.size > 0) {
+          formData.set(fieldName, await prepareUploadImage(photo));
+        }
+      }
+
       const response = await fetch("/api/requests", {
         method: "POST",
-        body: new FormData(formElement),
+        body: formData,
       });
-      const body = await response.json().catch(() => ({}));
+      const raw = await response.text();
+      let body: {
+        ok?: boolean;
+        error?: string;
+        field?: string;
+        reference_code?: string;
+        storage?: string;
+        request_id?: string;
+      } = {};
+      try {
+        body = raw ? JSON.parse(raw) : {};
+      } catch {
+        body = {};
+      }
       setSubmitting(false);
 
+      const referenceCodeValue = body.reference_code;
       const savedToSupabase =
         response.ok &&
         response.status === 201 &&
         body?.ok === true &&
-        typeof body.reference_code === "string" &&
-        body.reference_code.length > 0 &&
+        typeof referenceCodeValue === "string" &&
+        referenceCodeValue.length > 0 &&
         body.storage === "supabase";
 
-      if (!savedToSupabase) {
+      if (!savedToSupabase || typeof referenceCodeValue !== "string") {
+        const fallback =
+          response.status === 413
+            ? "The photos are too large to upload. Choose smaller images and try again."
+            : !raw
+              ? `The server did not accept this request (HTTP ${response.status}). Please try again.`
+              : "Your request was not saved to the database. Please try again or contact Goodwill staff.";
+        const detail = body.error || fallback;
         setError(
-          body.error ||
-            "Your request was not saved to the database. Please try again or contact Goodwill staff.",
+          body.request_id ? `${detail} (Error ID: ${body.request_id})` : detail,
         );
         if (body.field) {
           const field = formElement.elements.namedItem(String(body.field));
@@ -73,7 +102,7 @@ export function TrailerRequestForm() {
         return;
       }
 
-      setReferenceCode(body.reference_code);
+      setReferenceCode(referenceCodeValue);
       formElement.reset();
       setAddressType("residential");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -346,13 +375,12 @@ export function TrailerRequestForm() {
               <input
                 type="file"
                 name="parking_photo"
-                accept="image/jpeg,image/png,image/webp"
-                capture="environment"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic"
                 className="mt-1.5 block w-full rounded-lg border border-line bg-white p-3 text-sm"
                 required
               />
               <span className="mt-1 block text-xs font-normal text-muted">
-                JPG, PNG, or WebP; maximum 8 MB.
+                Take a photo or choose one from your gallery. JPG, PNG, or WebP.
               </span>
             </label>
             <label className="text-sm font-semibold">
@@ -360,13 +388,13 @@ export function TrailerRequestForm() {
               <input
                 type="file"
                 name="license_photo"
-                accept="image/jpeg,image/png,image/webp"
-                capture="environment"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic"
                 className="mt-1.5 block w-full rounded-lg border border-line bg-white p-3 text-sm"
                 required
               />
               <span className="mt-1 block text-xs font-normal text-muted">
-                Stored privately and available only to authorized staff.
+                Take a photo or choose one from your gallery. Stored privately
+                and available only to authorized staff.
               </span>
             </label>
             <label className="text-sm font-semibold sm:col-span-2">
@@ -494,7 +522,19 @@ export function TrailerRequestForm() {
             className="rounded-lg border border-red-300 bg-red-50 p-4 font-semibold text-red-700"
             role="alert"
           >
-            {error}
+            <p>{error}</p>
+            <p className="mt-3 font-normal text-ink">
+              If the issue persists, here is another option.{" "}
+              <a
+                href="https://gwct.wufoo.com/forms/mb0gbbn0sce1xg/"
+                className="font-semibold text-gw-blue underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Submit the Mobile Donation Trailer Request on Wufoo
+              </a>
+              .
+            </p>
           </div>
         )}
 
