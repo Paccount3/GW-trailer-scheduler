@@ -13,6 +13,19 @@ export function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function isFileAccessError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const name = "name" in error ? String(error.name) : "";
+  const message = error.message.toLowerCase();
+  return (
+    name === "NotReadableError" ||
+    name === "NotFoundError" ||
+    message.includes("could not be read") ||
+    message.includes("permission problems") ||
+    message.includes("after a reference to a file was acquired")
+  );
+}
+
 function sniffImageType(bytes: Uint8Array) {
   if (
     bytes.length >= 3 &&
@@ -57,14 +70,47 @@ function fileLabel(file: File) {
   return file.name?.trim() || "Photo";
 }
 
+/**
+ * Copy a selected photo into browser memory immediately.
+ * Android Chrome often invalidates the original File handle after later
+ * validation errors or when the page is backgrounded.
+ */
+export async function captureFileInMemory(file: File): Promise<File> {
+  try {
+    const bytes = await file.arrayBuffer();
+    return new File([bytes], file.name || "photo.jpg", {
+      type: file.type || "application/octet-stream",
+      lastModified: file.lastModified || Date.now(),
+    });
+  } catch (error) {
+    if (isFileAccessError(error)) {
+      throw new Error(
+        `"${fileLabel(file)}" could not be kept on this phone after it was selected. Please choose the photo again, then submit right away.`,
+      );
+    }
+    throw error instanceof Error
+      ? error
+      : new Error(`Unable to keep "${fileLabel(file)}" in memory.`);
+  }
+}
+
 async function fileFacts(file: File) {
-  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  return {
-    name: fileLabel(file),
-    size: formatBytes(file.size),
-    type: file.type || "no file type",
-    contents: sniffImageType(header),
-  };
+  try {
+    const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    return {
+      name: fileLabel(file),
+      size: formatBytes(file.size),
+      type: file.type || "no file type",
+      contents: sniffImageType(header),
+    };
+  } catch (error) {
+    if (isFileAccessError(error)) {
+      throw new Error(
+        `"${fileLabel(file)}" could not be read. On Android this often happens if a previous submit failed and the photo needs to be selected again.`,
+      );
+    }
+    throw error;
+  }
 }
 
 function decodeFailureMessage(
@@ -124,10 +170,20 @@ async function decodeImage(file: File): Promise<Drawable> {
       },
       close: () => bitmap.close(),
     };
-  } catch {
+  } catch (error) {
+    if (isFileAccessError(error)) {
+      throw new Error(
+        `"${fileLabel(file)}" could not be read. Please choose the photo again and submit without leaving this page.`,
+      );
+    }
     try {
       return await decodeWithImageElement(file);
-    } catch {
+    } catch (fallbackError) {
+      if (isFileAccessError(fallbackError)) {
+        throw new Error(
+          `"${fileLabel(file)}" could not be read. Please choose the photo again and submit without leaving this page.`,
+        );
+      }
       throw new Error(decodeFailureMessage(await fileFacts(file)));
     }
   }
@@ -139,67 +195,76 @@ async function decodeImage(file: File): Promise<Drawable> {
  * request body limit and fails before the API can return a useful error.
  */
 export async function prepareUploadImage(file: File): Promise<File> {
-  const type = file.type.toLowerCase();
-  const alreadySmall =
-    file.size <= SKIP_UNDER_BYTES &&
-    (type === "image/jpeg" || type === "image/png" || type === "image/webp");
-
-  if (alreadySmall) return file;
-
-  if (type === "image/jpg" && file.size <= SKIP_UNDER_BYTES) {
-    return new File([file], jpegName(file.name), { type: "image/jpeg" });
-  }
-
-  const facts = await fileFacts(file);
-  if (facts.contents === "HEIC") {
-    throw new Error(decodeFailureMessage(facts));
-  }
-
-  const image = await decodeImage(file);
-
   try {
-    let edge = MAX_EDGE;
-    let quality = 0.82;
-    let blob: Blob | null = null;
-    let lastWidth = image.width;
-    let lastHeight = image.height;
+    const type = file.type.toLowerCase();
+    const alreadySmall =
+      file.size <= SKIP_UNDER_BYTES &&
+      (type === "image/jpeg" || type === "image/png" || type === "image/webp");
 
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      const scale = Math.min(1, edge / Math.max(image.width, image.height));
-      lastWidth = Math.max(1, Math.round(image.width * scale));
-      lastHeight = Math.max(1, Math.round(image.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = lastWidth;
-      canvas.height = lastHeight;
-      const context = canvas.getContext("2d");
-      if (!context) {
+    if (alreadySmall) return file;
+
+    if (type === "image/jpg" && file.size <= SKIP_UNDER_BYTES) {
+      return new File([file], jpegName(file.name), { type: "image/jpeg" });
+    }
+
+    const facts = await fileFacts(file);
+    if (facts.contents === "HEIC") {
+      throw new Error(decodeFailureMessage(facts));
+    }
+
+    const image = await decodeImage(file);
+
+    try {
+      let edge = MAX_EDGE;
+      let quality = 0.82;
+      let blob: Blob | null = null;
+      let lastWidth = image.width;
+      let lastHeight = image.height;
+
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const scale = Math.min(1, edge / Math.max(image.width, image.height));
+        lastWidth = Math.max(1, Math.round(image.width * scale));
+        lastHeight = Math.max(1, Math.round(image.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = lastWidth;
+        canvas.height = lastHeight;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          throw new Error(
+            `"${facts.name}" could not be resized (${facts.size}, ${image.width}×${image.height}). This device may not have enough memory for that photo.`,
+          );
+        }
+        image.draw(context, lastWidth, lastHeight);
+        blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((value) => resolve(value), "image/jpeg", quality);
+        });
+        if (blob && blob.size <= MAX_OUTPUT_BYTES) break;
+        edge = Math.round(edge * 0.75);
+        quality = Math.max(0.55, quality - 0.12);
+      }
+
+      if (!blob) {
         throw new Error(
-          `"${facts.name}" could not be resized (${facts.size}, ${image.width}×${image.height}). This device may not have enough memory for that photo.`,
+          `"${facts.name}" could not be converted to a smaller JPG (original ${facts.size}, ${image.width}×${image.height}).`,
         );
       }
-      image.draw(context, lastWidth, lastHeight);
-      blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((value) => resolve(value), "image/jpeg", quality);
-      });
-      if (blob && blob.size <= MAX_OUTPUT_BYTES) break;
-      edge = Math.round(edge * 0.75);
-      quality = Math.max(0.55, quality - 0.12);
-    }
 
-    if (!blob) {
+      if (blob.size > MAX_OUTPUT_BYTES) {
+        throw new Error(
+          `"${facts.name}" is still too large after resizing. Original ${facts.size} (${image.width}×${image.height}); prepared file is ${formatBytes(blob.size)} at ${lastWidth}×${lastHeight}. The limit is ${formatBytes(MAX_OUTPUT_BYTES)}. Choose a smaller photo.`,
+        );
+      }
+
+      return new File([blob], jpegName(file.name), { type: "image/jpeg" });
+    } finally {
+      image.close();
+    }
+  } catch (error) {
+    if (isFileAccessError(error)) {
       throw new Error(
-        `"${facts.name}" could not be converted to a smaller JPG (original ${facts.size}, ${image.width}×${image.height}).`,
+        `"${fileLabel(file)}" could not be read. Please choose the photo again and submit without leaving this page.`,
       );
     }
-
-    if (blob.size > MAX_OUTPUT_BYTES) {
-      throw new Error(
-        `"${facts.name}" is still too large after resizing. Original ${facts.size} (${image.width}×${image.height}); prepared file is ${formatBytes(blob.size)} at ${lastWidth}×${lastHeight}. The limit is ${formatBytes(MAX_OUTPUT_BYTES)}. Choose a smaller photo.`,
-      );
-    }
-
-    return new File([blob], jpegName(file.name), { type: "image/jpeg" });
-  } finally {
-    image.close();
+    throw error;
   }
 }

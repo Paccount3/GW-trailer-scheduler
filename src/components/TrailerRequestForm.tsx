@@ -1,13 +1,17 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import { CheckCircle2, FileCheck2, Loader2, MapPin, ShieldCheck } from "lucide-react";
 import {
   HOLD_HARMLESS_TEXT,
   NON_DONATABLE_ITEMS,
   SERVICE_TOWNS,
 } from "@/lib/hold-harmless";
-import { prepareUploadImage } from "@/lib/prepare-upload-image";
+import {
+  captureFileInMemory,
+  formatBytes,
+  prepareUploadImage,
+} from "@/lib/prepare-upload-image";
 
 function AgreementCheckbox({
   name,
@@ -29,17 +33,64 @@ function AgreementCheckbox({
   );
 }
 
+type PhotoField = "parking_photo" | "license_photo";
+
 export function TrailerRequestForm() {
   const [addressType, setAddressType] = useState("residential");
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState("");
   const [error, setError] = useState("");
   const [referenceCode, setReferenceCode] = useState<string | null>(null);
+  const [parkingPhoto, setParkingPhoto] = useState<File | null>(null);
+  const [licensePhoto, setLicensePhoto] = useState<File | null>(null);
+  const [photoBusy, setPhotoBusy] = useState<PhotoField | null>(null);
+
+  async function keepSelectedPhoto(
+    field: PhotoField,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const selected = event.target.files?.[0] ?? null;
+    setError("");
+
+    if (!selected) {
+      if (field === "parking_photo") setParkingPhoto(null);
+      else setLicensePhoto(null);
+      return;
+    }
+
+    setPhotoBusy(field);
+    try {
+      // Copy bytes immediately so Android cannot revoke the original File handle.
+      const kept = await captureFileInMemory(selected);
+      if (field === "parking_photo") setParkingPhoto(kept);
+      else setLicensePhoto(kept);
+    } catch (err) {
+      event.target.value = "";
+      if (field === "parking_photo") setParkingPhoto(null);
+      else setLicensePhoto(null);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to keep that photo. Please choose it again.",
+      );
+    } finally {
+      setPhotoBusy(null);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
     if (!formElement.reportValidity()) return;
+
+    if (!parkingPhoto) {
+      setError("Please choose a parking-location photo.");
+      return;
+    }
+    if (!licensePhoto) {
+      setError("Please choose a driver’s license photo.");
+      return;
+    }
 
     setSubmitting(true);
     setSubmitStatus("Preparing your photos…");
@@ -47,17 +98,14 @@ export function TrailerRequestForm() {
 
     try {
       const formData = new FormData(formElement);
-      for (const fieldName of ["parking_photo", "license_photo"] as const) {
-        const photo = formData.get(fieldName);
-        if (photo instanceof File && photo.size > 0) {
-          const label =
-            fieldName === "parking_photo"
-              ? "parking location photo"
-              : "driver’s license photo";
-          setSubmitStatus(`Preparing the ${label}…`);
-          formData.set(fieldName, await prepareUploadImage(photo));
-        }
-      }
+      // Use in-memory copies, not the live file-input handles (Android can revoke those).
+      formData.set("parking_photo", parkingPhoto);
+      formData.set("license_photo", licensePhoto);
+
+      setSubmitStatus("Preparing the parking location photo…");
+      formData.set("parking_photo", await prepareUploadImage(parkingPhoto));
+      setSubmitStatus("Preparing the driver’s license photo…");
+      formData.set("license_photo", await prepareUploadImage(licensePhoto));
 
       setSubmitStatus("Sending your request…");
       const response = await fetch("/api/requests", {
@@ -113,6 +161,8 @@ export function TrailerRequestForm() {
 
       setReferenceCode(referenceCodeValue);
       formElement.reset();
+      setParkingPhoto(null);
+      setLicensePhoto(null);
       setAddressType("residential");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
@@ -388,7 +438,6 @@ export function TrailerRequestForm() {
                 name="parking_location_description"
                 className="textarea mt-1.5 min-h-32"
                 required
-                minLength={10}
                 maxLength={2000}
                 placeholder="Describe the flat surface, street or driveway access, clearance, and exact placement."
               />
@@ -407,10 +456,18 @@ export function TrailerRequestForm() {
                 name="parking_photo"
                 accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic"
                 className="mt-1.5 block w-full rounded-lg border border-line bg-white p-3 text-sm"
-                required
+                required={!parkingPhoto}
+                onChange={(event) => {
+                  void keepSelectedPhoto("parking_photo", event);
+                }}
               />
               <span className="mt-1 block text-xs font-normal text-muted">
                 Take a photo or choose one from your gallery. JPG, PNG, or WebP.
+                {parkingPhoto
+                  ? ` Ready: ${parkingPhoto.name} (${formatBytes(parkingPhoto.size)}).`
+                  : photoBusy === "parking_photo"
+                    ? " Saving photo on this device…"
+                    : ""}
               </span>
             </label>
             <label className="text-sm font-semibold">
@@ -420,11 +477,19 @@ export function TrailerRequestForm() {
                 name="license_photo"
                 accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic"
                 className="mt-1.5 block w-full rounded-lg border border-line bg-white p-3 text-sm"
-                required
+                required={!licensePhoto}
+                onChange={(event) => {
+                  void keepSelectedPhoto("license_photo", event);
+                }}
               />
               <span className="mt-1 block text-xs font-normal text-muted">
                 Take a photo or choose one from your gallery. Stored privately
                 and available only to authorized staff.
+                {licensePhoto
+                  ? ` Ready: ${licensePhoto.name} (${formatBytes(licensePhoto.size)}).`
+                  : photoBusy === "license_photo"
+                    ? " Saving photo on this device…"
+                    : ""}
               </span>
             </label>
             <label className="text-sm font-semibold sm:col-span-2">

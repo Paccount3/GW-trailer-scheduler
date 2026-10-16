@@ -129,7 +129,11 @@ const requestSchema = z.object({
   email: z.email(),
   requested_duration_days: z.coerce.number().int().refine((value) => [2, 3].includes(value)),
   scheduled_date: z.iso.date(),
-  parking_location_description: z.string().trim().min(10).max(2000),
+  parking_location_description: z
+    .string()
+    .trim()
+    .min(1, "Please describe the trailer parking location.")
+    .max(2000),
   heard_about: z.string().trim().min(1).max(120),
   signature: z.string().trim().min(2).max(150),
 });
