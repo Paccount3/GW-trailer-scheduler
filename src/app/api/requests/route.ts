@@ -113,30 +113,131 @@ function sniffImageType(bytes: Uint8Array) {
   return null;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  first_name: "First name",
+  last_name: "Last name",
+  organization: "Organization or business name",
+  address_type: "Address type",
+  dropoff_town: "Drop-off town",
+  address_line1: "Street address",
+  address_line2: "Address line 2",
+  city: "City",
+  state: "State / province / region",
+  zip: "Postal / ZIP code",
+  country: "Country",
+  phone: "Phone number",
+  email: "Email",
+  requested_duration_days: "Number of days",
+  scheduled_date: "Requested drop-off date",
+  parking_location_description: "Trailer parking location description",
+  heard_about: "How did you hear about Mobile Donation Centers",
+  signature: "Full legal signature",
+  parking_photo: "Parking-location photo",
+  license_photo: "Driver’s license photo",
+};
+
 const requestSchema = z.object({
-  first_name: z.string().trim().min(1).max(80),
-  last_name: z.string().trim().min(1).max(80),
-  organization: z.string().trim().max(150).optional(),
-  address_type: z.enum(["residential", "organization"]),
-  dropoff_town: z.enum(SERVICE_TOWNS),
-  address_line1: z.string().trim().min(1).max(150),
-  address_line2: z.string().trim().max(150).optional(),
-  city: z.string().trim().min(1).max(100),
-  state: z.string().trim().min(2).max(50),
-  zip: z.string().trim().min(5).max(12),
-  country: z.string().trim().min(1).max(80),
-  phone: z.string().trim().min(10).max(30),
-  email: z.email(),
-  requested_duration_days: z.coerce.number().int().refine((value) => [2, 3].includes(value)),
-  scheduled_date: z.iso.date(),
+  first_name: z
+    .string()
+    .trim()
+    .min(1, "First name is required.")
+    .max(80, "First name must be 80 characters or fewer."),
+  last_name: z
+    .string()
+    .trim()
+    .min(1, "Last name is required.")
+    .max(80, "Last name must be 80 characters or fewer."),
+  organization: z
+    .string()
+    .trim()
+    .max(150, "Organization or business name must be 150 characters or fewer.")
+    .optional(),
+  address_type: z.enum(["residential", "organization"], {
+    error: "Please select an address type.",
+  }),
+  dropoff_town: z.enum(SERVICE_TOWNS, {
+    error: "Please select a drop-off town from the list.",
+  }),
+  address_line1: z
+    .string()
+    .trim()
+    .min(1, "Street address is required.")
+    .max(150, "Street address must be 150 characters or fewer."),
+  address_line2: z
+    .string()
+    .trim()
+    .max(150, "Address line 2 must be 150 characters or fewer.")
+    .optional(),
+  city: z
+    .string()
+    .trim()
+    .min(1, "City is required.")
+    .max(100, "City must be 100 characters or fewer."),
+  state: z
+    .string()
+    .trim()
+    .min(2, "State / province / region must be at least 2 characters.")
+    .max(50, "State / province / region must be 50 characters or fewer."),
+  zip: z
+    .string()
+    .trim()
+    .min(5, "Postal / ZIP code must be at least 5 characters.")
+    .max(12, "Postal / ZIP code must be 12 characters or fewer."),
+  country: z
+    .string()
+    .trim()
+    .min(1, "Country is required.")
+    .max(80, "Country must be 80 characters or fewer."),
+  phone: z
+    .string()
+    .trim()
+    .min(10, "Phone number must be at least 10 digits.")
+    .max(30, "Phone number must be 30 characters or fewer."),
+  email: z.email("Please enter a valid email address."),
+  requested_duration_days: z.coerce
+    .number({ error: "Please select 2 or 3 days." })
+    .int("Please select 2 or 3 days.")
+    .refine((value) => [2, 3].includes(value), {
+      message: "Please select 2 or 3 days.",
+    }),
+  scheduled_date: z.iso.date({
+    error: "Please choose a valid requested drop-off date.",
+  }),
   parking_location_description: z
     .string()
     .trim()
     .min(1, "Please describe the trailer parking location.")
-    .max(2000),
-  heard_about: z.string().trim().min(1).max(120),
-  signature: z.string().trim().min(2).max(150),
+    .max(
+      2000,
+      "Trailer parking location description must be 2000 characters or fewer.",
+    ),
+  heard_about: z
+    .string()
+    .trim()
+    .min(1, "Please tell us how you heard about Mobile Donation Centers.")
+    .max(120, "That answer is too long."),
+  signature: z
+    .string()
+    .trim()
+    .min(2, "Full legal signature must be at least 2 characters.")
+    .max(150, "Full legal signature must be 150 characters or fewer."),
 });
+
+function formatValidationIssue(issue: z.core.$ZodIssue) {
+  const field = String(issue.path[0] || "");
+  const label = FIELD_LABELS[field] || field || "Form";
+  const message = issue.message || "Please check this field.";
+  // Avoid returning raw Zod wording if a custom message somehow wasn't applied.
+  const looksGeneric =
+    /^too small/i.test(message) ||
+    /^too big/i.test(message) ||
+    /^invalid/i.test(message) ||
+    /^expected /i.test(message);
+  return {
+    field: field || undefined,
+    error: looksGeneric ? `${label}: ${message}` : message,
+  };
+}
 
 function checked(form: FormData, name: string) {
   return form.get(name) === "on";
@@ -284,15 +385,18 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       const firstIssue = parsed.error.issues[0];
+      const formatted = firstIssue
+        ? formatValidationIssue(firstIssue)
+        : { field: undefined, error: "Please check the required fields." };
       logRequest(requestId, "validation", {
         userAgent,
-        field: firstIssue?.path[0] ?? null,
-        message: firstIssue?.message ?? null,
+        field: formatted.field ?? null,
+        message: formatted.error,
       });
       return NextResponse.json(
         {
-          error: firstIssue?.message || "Please check the required fields.",
-          field: firstIssue?.path[0],
+          error: formatted.error,
+          field: formatted.field,
           request_id: requestId,
         },
         { status: 400 },
