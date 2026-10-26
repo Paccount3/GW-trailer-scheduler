@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Open_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${openSans.variable} h-full`}>
       <body className="min-h-full flex flex-col antialiased font-sans">
         {children}
+        <Analytics />
       </body>
     </html>
   );
