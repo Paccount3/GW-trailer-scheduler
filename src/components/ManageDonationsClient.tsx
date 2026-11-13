@@ -429,7 +429,13 @@ export function ManageDonationsClient({
                   <span className="font-semibold">{loadDisplay(d.id)}</span>
                   {pickupReports[d.id]?.completed && (
                     <span>
-                      {formatCurrency(reportedEstimate(d)?.value)}
+                      Goods: {formatCurrency(reportedEstimate(d)?.value)}
+                    </span>
+                  )}
+                  {Number(d.additional_monetary_donations) > 0 && (
+                    <span>
+                      Add&apos;l:{" "}
+                      {formatCurrency(Number(d.additional_monetary_donations))}
                     </span>
                   )}
                   {pickupReports[d.id]?.completed ? (
@@ -467,6 +473,7 @@ export function ManageDonationsClient({
                 <th>Dropoff Store</th>
                 <th>Load</th>
                 <th>Value</th>
+                <th>Additional $</th>
                 <th>Pickup Report</th>
               </tr>
             </thead>
@@ -508,6 +515,11 @@ export function ManageDonationsClient({
                       : "—"}
                   </td>
                   <td>
+                    {formatCurrency(
+                      Number(d.additional_monetary_donations) || 0,
+                    )}
+                  </td>
+                  <td>
                     {pickupReports[d.id]?.completed ? (
                       <Link
                         href={`/staff/trailer-reports/${pickupReports[d.id].id}`}
@@ -526,7 +538,7 @@ export function ManageDonationsClient({
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="text-center text-muted py-10">
+                  <td colSpan={10} className="text-center text-muted py-10">
                     No matching requests
                   </td>
                 </tr>
