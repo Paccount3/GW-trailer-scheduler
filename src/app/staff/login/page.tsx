@@ -55,10 +55,6 @@ function LoginForm() {
       <button type="submit" className="btn btn-primary w-full" disabled={loading}>
         {loading ? "Signing in…" : "Sign in"}
       </button>
-      <p className="text-xs text-muted">
-        Default local password is <code>goodwill</code> unless{" "}
-        <code>STAFF_PASSWORD</code> is set.
-      </p>
     </form>
   );
 }

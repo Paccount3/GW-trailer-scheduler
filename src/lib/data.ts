@@ -198,6 +198,7 @@ export const data = {
         | "scheduled_date"
         | "dropoff_store"
         | "load_size"
+        | "additional_monetary_donations"
         | "staff_notes"
         | "first_name"
         | "last_name"

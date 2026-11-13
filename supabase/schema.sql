@@ -75,6 +75,7 @@ create table public.donation_requests (
   load_size public.load_size,
   estimated_pounds numeric(10, 2),
   estimated_value numeric(12, 2),
+  additional_monetary_donations numeric(12, 2) not null default 0,
   staff_notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

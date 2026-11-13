@@ -169,6 +169,9 @@ function loadPersistedStore(): Store | null {
         staff_signed_at: donation.staff_signed_at ?? null,
         dropoff_store: donation.dropoff_store ?? null,
         load_size: loadSize,
+        additional_monetary_donations: Number(
+          donation.additional_monetary_donations ?? 0,
+        ),
       };
     });
     const normalized = normalizeLoadSettings(parsed.loadSettings);
@@ -396,6 +399,9 @@ export const demoDb = {
       load_size: null,
       estimated_pounds: null,
       estimated_value: null,
+      additional_monetary_donations: Number(
+        input.additional_monetary_donations ?? 0,
+      ),
       staff_notes: input.staff_notes ?? null,
       created_at: now(),
       updated_at: now(),
@@ -419,6 +425,7 @@ export const demoDb = {
         | "scheduled_date"
         | "dropoff_store"
         | "load_size"
+        | "additional_monetary_donations"
         | "staff_notes"
         | "first_name"
         | "last_name"

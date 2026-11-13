@@ -690,6 +690,46 @@ export function ManageDonationsClient({
               </div>
 
               <label className="block text-sm font-semibold">
+                Additional Monetary Donations
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  className="input mt-1.5 min-h-11"
+                  defaultValue={
+                    selected.additional_monetary_donations != null
+                      ? String(selected.additional_monetary_donations)
+                      : "0"
+                  }
+                  key={`monetary-${selected.id}-${selected.additional_monetary_donations ?? 0}`}
+                  disabled={saving}
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    const nextValue = raw === "" ? 0 : Number(raw);
+                    if (!Number.isFinite(nextValue) || nextValue < 0) {
+                      setError("Enter a valid dollar amount (0 or greater).");
+                      e.target.value = String(
+                        selected.additional_monetary_donations ?? 0,
+                      );
+                      return;
+                    }
+                    const rounded = Math.round(nextValue * 100) / 100;
+                    const current = Number(
+                      selected.additional_monetary_donations ?? 0,
+                    );
+                    if (rounded !== current) {
+                      savePatch({ additional_monetary_donations: rounded });
+                    }
+                  }}
+                />
+                <span className="mt-1 block text-xs font-normal text-muted">
+                  Cash or online gifts given through another platform for this
+                  donor.
+                </span>
+              </label>
+
+              <label className="block text-sm font-semibold">
                 Staff notes
                 <textarea
                   className="textarea mt-1.5 min-h-24"

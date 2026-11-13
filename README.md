@@ -56,7 +56,8 @@ On Vercel:
 - `SUPABASE_SECRET_KEY` must be type **Secret** and must **not** use `NEXT_PUBLIC_`
 
 If an earlier schema is already installed, also run migrations in `supabase/`,
-including `migration_staff_countersign.sql`.
+including `migration_staff_countersign.sql` and
+`migration_additional_monetary_donations.sql`.
 
 ## Native public request form
 

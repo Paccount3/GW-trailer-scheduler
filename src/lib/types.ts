@@ -152,6 +152,7 @@ export type DonationRequest = {
   load_size: LoadSize | null;
   estimated_pounds: number | null;
   estimated_value: number | null;
+  additional_monetary_donations: number | null;
   staff_notes: string | null;
   created_at: string;
   updated_at: string;

@@ -125,6 +125,14 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
       ),
     );
     const totals = estimatedTotals(filtered, filteredReports, loadSettings);
+    const additionalMonetary = filtered.reduce(
+      (sum, donation) =>
+        sum + (Number(donation.additional_monetary_donations) || 0),
+      0,
+    );
+    const donorsWithAdditionalMonetary = filtered.filter(
+      (donation) => Number(donation.additional_monetary_donations) > 0,
+    ).length;
 
     const countBy = (getKey: (donation: DonationRequest) => string) =>
       Object.entries(
@@ -249,6 +257,9 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
           ) / 10
         : null,
       totals,
+      additionalMonetary,
+      donorsWithAdditionalMonetary,
+      combinedValue: totals.value + additionalMonetary,
       towns,
       sources,
       trailers,
@@ -340,7 +351,7 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {[
           { label: "Requests", value: formatNumber(filtered.length) },
           {
@@ -354,17 +365,19 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
             detail: "Completed pickups",
           },
           {
-            label: "Estimated value",
+            label: "Goods value",
             value: formatCurrency(metrics.totals.value),
-            detail: "Completed pickups",
+            detail: "Completed pickup estimates",
           },
           {
-            label: "Avg. days to scheduled date",
-            value:
-              metrics.averageLeadDays === null
-                ? "—"
-                : String(metrics.averageLeadDays),
-            detail: "From request submission",
+            label: "Additional monetary",
+            value: formatCurrency(metrics.additionalMonetary),
+            detail: `${formatNumber(metrics.donorsWithAdditionalMonetary)} donor${metrics.donorsWithAdditionalMonetary === 1 ? "" : "s"} with recorded gifts`,
+          },
+          {
+            label: "Combined value",
+            value: formatCurrency(metrics.combinedValue),
+            detail: "Goods + additional monetary",
           },
         ].map((stat) => (
           <div key={stat.label} className="panel min-w-0 p-4 sm:p-5">
@@ -379,6 +392,52 @@ export function ReportsCharts({ donations, reports, loadSettings }: Props) {
             )}
           </div>
         ))}
+      </section>
+
+      <section className="panel p-4 sm:p-5">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-ink">
+              Donation value breakdown
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Goods estimates from completed pickups versus additional monetary
+              donations entered by staff.
+            </p>
+          </div>
+          <p className="text-sm font-semibold text-muted">
+            Avg. days to scheduled date:{" "}
+            {metrics.averageLeadDays === null
+              ? "—"
+              : String(metrics.averageLeadDays)}
+          </p>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-surface px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Goods (trailer loads)
+            </p>
+            <p className="mt-1 text-2xl font-bold text-ink">
+              {formatCurrency(metrics.totals.value)}
+            </p>
+          </div>
+          <div className="rounded-xl bg-surface px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+              Additional monetary
+            </p>
+            <p className="mt-1 text-2xl font-bold text-ink">
+              {formatCurrency(metrics.additionalMonetary)}
+            </p>
+          </div>
+          <div className="rounded-xl bg-gw-blue-soft px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gw-blue-deep">
+              Combined total
+            </p>
+            <p className="mt-1 text-2xl font-bold text-gw-blue-deep">
+              {formatCurrency(metrics.combinedValue)}
+            </p>
+          </div>
+        </div>
       </section>
 
       {filtered.length === 0 ? (

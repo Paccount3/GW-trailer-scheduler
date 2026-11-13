@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { TrailerRequestForm } from "@/components/TrailerRequestForm";
-import { SERVICE_TOWNS } from "@/lib/hold-harmless";
 
 export const metadata: Metadata = {
   title: "Request a Trailer",
@@ -26,11 +25,7 @@ export default function RequestTrailerPage() {
 
       <section className="content-shell py-6 sm:py-8 pb-12">
         <div className="panel mb-6 p-4 sm:p-6">
-          <h2 className="text-xl font-bold">Before you begin</h2>
-          <p className="mt-2 text-muted">
-            Mobile Donation Centers are currently available in{" "}
-            {SERVICE_TOWNS.join(", ")}.
-          </p>
+          <h2 className="text-xl font-bold">Mobile Trailer Request Form</h2>
           <p className="mt-3 text-muted">
             We strive to accommodate as many requests as possible, but
             submitting this form does not guarantee a reservation. Due to the
